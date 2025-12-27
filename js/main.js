@@ -203,5 +203,78 @@ document.addEventListener('DOMContentLoaded', function() {
         section.classList.add('section-fade-in');
         sectionObserver.observe(section);
     });
+
+    // LinkedIn preview modal: intercept clicks on LinkedIn social links
+    (function() {
+        const profileUrl = 'https://www.linkedin.com/in/kyle-jules-3kgl';
+
+        // Create modal HTML and append to body
+        function createModal() {
+            const wrapper = document.createElement('div');
+            wrapper.id = 'linkedin-preview-overlay';
+            wrapper.className = 'linkedin-overlay';
+            wrapper.style.display = 'none';
+            wrapper.innerHTML = `
+                <div class="linkedin-modal" role="dialog" aria-modal="true" aria-labelledby="linkedin-title">
+                    <button class="linkedin-close" aria-label="Close">&times;</button>
+                    <div class="linkedin-content">
+                        <img src="images/logo.jpg" alt="Kyle Jules" class="linkedin-avatar">
+                        <h3 id="linkedin-title">Kyle Jules</h3>
+                        <p class="linkedin-headline">Power Flow Services Ltd — Technical Services</p>
+                        <p class="linkedin-bio">Follow us on LinkedIn for company updates, product news, and service announcements.</p>
+                        <div class="linkedin-actions">
+                            <a href="${profileUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary linkedin-open">Open on LinkedIn</a>
+                            <button class="btn btn-outline-secondary linkedin-close-btn">Close</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(wrapper);
+
+            // Event listeners for close/open
+            const overlay = wrapper;
+            const closeButtons = wrapper.querySelectorAll('.linkedin-close, .linkedin-close-btn');
+            closeButtons.forEach(btn => btn.addEventListener('click', hideModal));
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) hideModal();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && overlay.style.display === 'flex') hideModal();
+            });
+        }
+
+        function showModal(profileHref) {
+            const overlay = document.getElementById('linkedin-preview-overlay') || null;
+            if (!overlay) return;
+            // If a custom href provided, update the Open button
+            if (profileHref) {
+                const openBtn = overlay.querySelector('.linkedin-open');
+                if (openBtn) openBtn.href = profileHref;
+            }
+            overlay.style.display = 'flex';
+        }
+
+        function hideModal() {
+            const overlay = document.getElementById('linkedin-preview-overlay') || null;
+            if (!overlay) return;
+            overlay.style.display = 'none';
+        }
+
+        // Initialize modal
+        createModal();
+
+        // Attach delegated click handler for LinkedIn anchors (keeps href as fallback)
+        document.body.addEventListener('click', function(e) {
+            const a = e.target.closest('a');
+            if (!a) return;
+            const aria = (a.getAttribute('aria-label') || '').toLowerCase();
+            const href = a.getAttribute('href') || profileUrl;
+            if (aria.includes('linkedin')) {
+                // Prevent immediate navigation; show preview instead
+                e.preventDefault();
+                showModal(href);
+            }
+        });
+    })();
 });
 
