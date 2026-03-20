@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node seedProducts.js",
-    "test": "jest --detectOpenHandles"
+    "test": "jest --detectOpenHandles",
+    "migrate:image-urls": "node scripts/updateProductImageUrls.js"
   },
   "keywords": [
     "powerflow",

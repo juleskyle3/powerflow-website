@@ -89,7 +89,13 @@ const invoiceDir = invoiceDirConfigured
   : path.join(__dirname, 'public', 'invoices');
 
 app.use('/invoices', express.static(invoiceDir));
-app.use(getUploadPublicPrefix(), express.static(path.resolve(getUploadRootDir())));
+// Always serve uploads under /uploads to keep stored URLs stable.
+// If you customize UPLOAD_PUBLIC_PREFIX, we serve that too.
+app.use('/uploads', express.static(path.resolve(getUploadRootDir())));
+const uploadPrefix = getUploadPublicPrefix();
+if (uploadPrefix && uploadPrefix !== '/uploads') {
+  app.use(uploadPrefix, express.static(path.resolve(getUploadRootDir())));
+}
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
