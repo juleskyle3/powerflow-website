@@ -344,14 +344,26 @@
         let editModal;
         let previewModal;
 
-        function escapeHtml(value) {
-            return String(value ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
+	        function escapeHtml(value) {
+	            return String(value ?? '')
+	                .replace(/&/g, '&amp;')
+	                .replace(/</g, '&lt;')
+	                .replace(/>/g, '&gt;')
+	                .replace(/"/g, '&quot;')
+	                .replace(/'/g, '&#039;');
+	        }
+
+	        function normalizeAssetUrl(url) {
+	            const raw = String(url || '').trim();
+	            if (!raw) return '';
+
+	            // Avoid mixed-content on https sites when the backend generated http URLs.
+	            if (window.location.protocol === 'https:' && raw.startsWith('http://')) {
+	                return `https://${raw.slice('http://'.length)}`;
+	            }
+
+	            return raw;
+	        }
 
         function showToast(message, type = 'success') {
             const alert = document.createElement('div');
@@ -541,9 +553,9 @@
             document.getElementById('productCount').textContent = `${filteredProducts.length} Products`;
         }
 
-        function renderProducts(items) {
-            const table = document.getElementById('productsTable');
-            const placeholderImage = buildInlinePlaceholder(64, 64, 'No Image');
+	        function renderProducts(items) {
+	            const table = document.getElementById('productsTable');
+	            const placeholderImage = buildInlinePlaceholder(64, 64, 'No Image');
 
             if (items.length === 0) {
                 table.innerHTML = `
@@ -557,13 +569,13 @@
                 return;
             }
 
-            table.innerHTML = items.map((product) => `
-                <tr>
-                    <td>
-                        <img src="${escapeHtml(product.image || placeholderImage)}" alt="${escapeHtml(product.name)}"
-                             style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px;"
-                             onerror="this.onerror=null;this.src='${placeholderImage}'">
-                    </td>
+	            table.innerHTML = items.map((product) => `
+	                <tr>
+	                    <td>
+	                        <img src="${escapeHtml(normalizeAssetUrl(product.image) || placeholderImage)}" alt="${escapeHtml(product.name)}"
+	                             style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px;"
+	                             onerror="this.onerror=null;this.src='${placeholderImage}'">
+	                    </td>
                     <td>
                         <strong>${escapeHtml(product.name)}</strong><br>
                         <small class="text-muted">${escapeHtml(product.description).slice(0, 90)}${product.description.length > 90 ? '...' : ''}</small>
@@ -598,19 +610,19 @@
             `).join('');
         }
 
-        function openPreview(productId) {
-            const product = products.find((item) => item.id === productId);
-            if (!product) return;
-            const previewPlaceholder = buildInlinePlaceholder(400, 300, 'No Image');
+	        function openPreview(productId) {
+	            const product = products.find((item) => item.id === productId);
+	            if (!product) return;
+	            const previewPlaceholder = buildInlinePlaceholder(400, 300, 'No Image');
 
-            const body = document.getElementById('productPreviewBody');
-            body.innerHTML = `
-                <div class="row g-3">
-                    <div class="col-lg-5">
-                        <img src="${escapeHtml(product.image || previewPlaceholder)}" alt="${escapeHtml(product.name)}"
-                             class="img-fluid rounded border"
-                             onerror="this.onerror=null;this.src='${previewPlaceholder}'">
-                    </div>
+	            const body = document.getElementById('productPreviewBody');
+	            body.innerHTML = `
+	                <div class="row g-3">
+	                    <div class="col-lg-5">
+	                        <img src="${escapeHtml(normalizeAssetUrl(product.image) || previewPlaceholder)}" alt="${escapeHtml(product.name)}"
+	                             class="img-fluid rounded border"
+	                             onerror="this.onerror=null;this.src='${previewPlaceholder}'">
+	                    </div>
                     <div class="col-lg-7">
                         <h4>${escapeHtml(product.name)}</h4>
                         <p class="text-muted">${escapeHtml(product.description)}</p>

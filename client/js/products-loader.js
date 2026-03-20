@@ -37,17 +37,23 @@ class ProductsLoader {
       electronic: [],
       electrical: [],
       plumbing: [],
+      other: [],
     };
 
     this.products.forEach((product) => {
-      if (categories[product.category]) {
-        categories[product.category].push(product);
+      const key = product?.category;
+      if (key && categories[key]) {
+        categories[key].push(product);
+        return;
       }
+
+      categories.other.push(product);
     });
 
     this.renderCategory('electronic', categories.electronic);
     this.renderCategory('electrical', categories.electrical);
     this.renderCategory('plumbing', categories.plumbing);
+    this.renderOtherCategory(categories.other);
   }
 
   renderCategory(category, products) {
@@ -63,13 +69,41 @@ class ProductsLoader {
     this.attachEventListeners();
   }
 
+  renderOtherCategory(products) {
+    const section = document.getElementById('otherProductsSection');
+    const container = document.querySelector('.other-products-grid');
+    if (!section || !container) return;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      section.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+
+    section.style.display = '';
+    container.innerHTML = products.map((product) => this.createProductCard(product)).join('');
+    this.attachEventListeners();
+  }
+
   getPlaceholderImage() {
     return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%231e3a8a%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23fff%22 font-size=%2224%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EProduct%3C/text%3E%3C/svg%3E';
   }
 
+  normalizeAssetUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+
+    // Avoid mixed-content on https sites when the backend generated http URLs.
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && raw.startsWith('http://')) {
+      return `https://${raw.slice('http://'.length)}`;
+    }
+
+    return raw;
+  }
+
   getPrimaryImage(product) {
-    if (product.image) return product.image;
-    if (Array.isArray(product.images) && product.images.length > 0) return product.images[0];
+    if (product.image) return this.normalizeAssetUrl(product.image);
+    if (Array.isArray(product.images) && product.images.length > 0) return this.normalizeAssetUrl(product.images[0]);
     return this.getPlaceholderImage();
   }
 
@@ -162,7 +196,7 @@ class ProductsLoader {
   }
 
   buildGalleryHtml(product) {
-    const images = [this.getPrimaryImage(product), ...this.toList(product.images)]
+    const images = [this.getPrimaryImage(product), ...this.toList(product.images).map((url) => this.normalizeAssetUrl(url))]
       .filter((image, index, list) => list.indexOf(image) === index);
 
     return images.map((image) => `

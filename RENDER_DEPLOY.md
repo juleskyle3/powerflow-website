@@ -27,6 +27,7 @@ The frontend now calls the backend via same-origin `/api/*` and proxies to the b
 - `INVOICE_DIR=/var/data/invoices`
 - `UPLOAD_PATH=/var/data/uploads`
 - `GOOGLE_TOKEN_PATH=/var/data/google-oauth-token.enc`
+- `PRODUCT_UPLOAD_BASE_URL=https://your-frontend.onrender.com` (recommended so image URLs are same-origin)
 
 **Gmail OAuth (if you want invoice emails to send)**
 - `EMAIL_PROVIDER=gmail-oauth`

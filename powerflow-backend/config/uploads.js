@@ -46,7 +46,12 @@ function getBackendBaseUrl(req) {
   }
 
   if (req) {
-    return `${req.protocol}://${req.get('host')}`.replace(/\/+$/, '');
+    // Prefer forwarded headers so URLs are correct on Render / behind a proxy.
+    const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
+    const forwardedHost = String(req.get('x-forwarded-host') || '').split(',')[0].trim();
+    const proto = forwardedProto || req.protocol;
+    const host = forwardedHost || req.get('host');
+    return `${proto}://${host}`.replace(/\/+$/, '');
   }
 
   return DEFAULT_BACKEND_URL;

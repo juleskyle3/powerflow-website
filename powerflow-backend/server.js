@@ -21,6 +21,10 @@ const { getUploadRootDir, getUploadPublicPrefix } = require('./config/uploads');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Render (and most reverse proxies) terminate TLS before Node.
+// Trust X-Forwarded-* so req.protocol and secure cookies work correctly.
+app.set('trust proxy', 1);
+
 function getAllowedOrigins() {
   const defaults = ['http://localhost:3000', 'http://127.0.0.1:5500'];
   const fromSingle = String(process.env.FRONTEND_URL || '')
