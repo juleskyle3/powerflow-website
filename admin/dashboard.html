@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Admin Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="admin-dashboard">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../images/logo.jpg" alt="Logo" class="sidebar-logo">
+            <h4 class="sidebar-title">Admin Portal</h4>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="nav-item">
+                <a href="dashboard.html" class="nav-link active">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="pages/website-content.html" class="nav-link">
+                    <i class="fas fa-globe"></i>
+                    Website Content
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="pages/products.html" class="nav-link">
+                    <i class="fas fa-box"></i>
+                    Products
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="pages/orders.html" class="nav-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    Orders
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="pages/services.html" class="nav-link">
+                    <i class="fas fa-cogs"></i>
+                    Services
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="pages/analytics.html" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    Analytics
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="pages/settings.html" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <div class="topbar">
+            <h1 class="page-title">Dashboard</h1>
+            <div class="user-menu">
+                <span class="text-muted me-3">Welcome, <strong id="userName">Admin</strong></span>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle me-2"></i>Account
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" id="logoutBtn"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="stats-number" id="totalProducts">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </div>
+                    <div class="stats-label">Total Products</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stats-number" id="activeProducts">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </div>
+                    <div class="stats-label">Active Products</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                    <div class="stats-number" id="totalCategories">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </div>
+                    <div class="stats-label">Categories</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stats-number" id="outOfStock">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </div>
+                    <div class="stats-label">Out of Stock</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Products by Category</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="categoryChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Stock Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="stockChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Products -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-box me-2"></i>Recent Products</h5>
+                <a href="pages/products.html" class="btn btn-sm btn-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentProductsTable">
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="spinner-border" role="status"></div>
+                                    <p class="mt-2">Loading products...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & System Status -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="pages/products.html" class="btn btn-outline-primary">
+                                <i class="fas fa-plus me-2"></i>Add New Product
+                            </a>
+                            <a href="pages/website-content.html" class="btn btn-outline-success">
+                                <i class="fas fa-edit me-2"></i>Update Website Content
+                            </a>
+                            <a href="pages/analytics.html" class="btn btn-outline-info">
+                                <i class="fas fa-chart-bar me-2"></i>View Analytics
+                            </a>
+                            <a href="../client/index.html" target="_blank" class="btn btn-outline-secondary">
+                                <i class="fas fa-eye me-2"></i>Preview Website
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-server me-2"></i>System Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span><i class="fas fa-globe me-2"></i>Website</span>
+                                <span class="badge bg-success">Online</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span><i class="fas fa-database me-2"></i>Database</span>
+                                <span class="badge" id="dbStatus">
+                                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span><i class="fas fa-server me-2"></i>API Server</span>
+                                <span class="badge" id="apiStatus">
+                                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span><i class="fas fa-box me-2"></i>Products Loaded</span>
+                                <span class="badge bg-info" id="productsLoaded">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/admin-auth.js"></script>
+    <script src="assets/js/admin-api-service.js"></script>
+    <script>
+        class Dashboard {
+            constructor() {
+                this.charts = {};
+                this.init();
+            }
+
+            async init() {
+                this.loadUserInfo();
+                await this.loadDashboardData();
+            }
+
+            loadUserInfo() {
+                const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+                const userNameEl = document.getElementById('userName');
+                if (userNameEl && user.name) {
+                    userNameEl.textContent = user.name;
+                }
+            }
+
+            async loadDashboardData() {
+                try {
+                    const response = await adminAPIService.getAllProducts({ limit: 100 });
+                    
+                    if (response.success) {
+                        const products = response.data.products;
+                        this.updateStats(products);
+                        this.renderCharts(products);
+                        this.renderRecentProducts(products.slice(0, 5));
+                        this.updateSystemStatus(true);
+                    } else {
+                        this.updateSystemStatus(false);
+                    }
+                } catch (error) {
+                    console.error('Error loading dashboard:', error);
+                    this.updateSystemStatus(false);
+                }
+            }
+
+            updateStats(products) {
+                const stats = {
+                    total: products.length,
+                    active: products.filter(p => p.isActive).length,
+                    outOfStock: products.filter(p => p.stock === 0).length,
+                    categories: [...new Set(products.map(p => p.category))].length
+                };
+
+                document.getElementById('totalProducts').textContent = stats.total;
+                document.getElementById('activeProducts').textContent = stats.active;
+                document.getElementById('totalCategories').textContent = stats.categories;
+                document.getElementById('outOfStock').textContent = stats.outOfStock;
+                document.getElementById('productsLoaded').textContent = stats.total;
+            }
+
+            renderCharts(products) {
+                this.renderCategoryChart(products);
+                this.renderStockChart(products);
+            }
+
+            renderCategoryChart(products) {
+                const categories = products.reduce((acc, p) => {
+                    acc[p.category] = (acc[p.category] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const ctx = document.getElementById('categoryChart');
+                if (this.charts.category) this.charts.category.destroy();
+
+                this.charts.category = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(categories).map(c => c.charAt(0).toUpperCase() + c.slice(1)),
+                        datasets: [{
+                            data: Object.values(categories),
+                            backgroundColor: [
+                                '#667eea',
+                                '#f093fb',
+                                '#4facfe',
+                                '#fa709a',
+                                '#43e97b'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderStockChart(products) {
+                const inStock = products.filter(p => p.stock > 10).length;
+                const lowStock = products.filter(p => p.stock > 0 && p.stock <= 10).length;
+                const outOfStock = products.filter(p => p.stock === 0).length;
+
+                const ctx = document.getElementById('stockChart');
+                if (this.charts.stock) this.charts.stock.destroy();
+
+                this.charts.stock = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['In Stock', 'Low Stock', 'Out of Stock'],
+                        datasets: [{
+                            label: 'Products',
+                            data: [inStock, lowStock, outOfStock],
+                            backgroundColor: [
+                                '#10b981',
+                                '#f59e0b',
+                                '#ef4444'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderRecentProducts(products) {
+                const tableBody = document.getElementById('recentProductsTable');
+                
+                if (products.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No products found</td></tr>';
+                    return;
+                }
+
+                tableBody.innerHTML = products.map(product => `
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <img src="${product.image}" alt="${product.name}" 
+                                     style="width: 40px; height: 40px; object-fit: cover; border-radius: 8px; margin-right: 10px;"
+                                     onerror="this.src='https://via.placeholder.com/40'">
+                                <strong>${product.name}</strong>
+                            </div>
+                        </td>
+                        <td><span class="badge bg-secondary">${product.category}</span></td>
+                        <td>RWF ${product.price.toLocaleString()}</td>
+                        <td>
+                            <span class="badge ${product.stock > 10 ? 'bg-success' : product.stock > 0 ? 'bg-warning' : 'bg-danger'}">
+                                ${product.stock} units
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${product.isActive ? 'bg-success' : 'bg-secondary'}">
+                                ${product.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="pages/products.html" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            updateSystemStatus(connected) {
+                const dbStatus = document.getElementById('dbStatus');
+                const apiStatus = document.getElementById('apiStatus');
+
+                if (connected) {
+                    dbStatus.className = 'badge bg-success';
+                    dbStatus.textContent = 'Connected';
+                    apiStatus.className = 'badge bg-success';
+                    apiStatus.textContent = 'Online';
+                } else {
+                    dbStatus.className = 'badge bg-danger';
+                    dbStatus.textContent = 'Disconnected';
+                    apiStatus.className = 'badge bg-danger';
+                    apiStatus.textContent = 'Offline';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new Dashboard();
+        });
+    </script>
+</body>
+</html>

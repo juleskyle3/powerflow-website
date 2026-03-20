@@ -1,0 +1,23 @@
+{
+  "name": "powerflow-website",
+  "version": "1.0.0",
+  "description": "Power Flow Services Ltd - Professional Website & Admin Portal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "backend": "cd powerflow-backend && npm start",
+    "install-backend": "cd powerflow-backend && npm install"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["powerflow", "services", "website", "admin"],
+  "author": "Power Flow Services Ltd",
+  "license": "ISC"
+}

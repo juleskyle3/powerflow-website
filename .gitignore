@@ -1,0 +1,4 @@
+node_modules
+powerflow-backend/credentials.json
+powerflow-backend/secure/
+powerflow-backend/.env

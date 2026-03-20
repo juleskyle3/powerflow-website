@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders - Admin Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <style>
+        .orders-page .main-content {
+            padding: 28px;
+        }
+
+        .orders-page .orders-panel .table-responsive {
+            border-radius: 12px;
+            overflow-x: auto;
+        }
+
+        .orders-page .orders-table {
+            min-width: 1520px;
+        }
+
+        .orders-page .orders-table thead th {
+            font-size: 0.84rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            padding: 1rem 0.95rem;
+        }
+
+        .orders-page .orders-table tbody td {
+            font-size: 0.95rem;
+            padding: 1rem 0.95rem;
+            vertical-align: middle;
+        }
+
+        .orders-page .orders-table .invoice-cell strong,
+        .orders-page .orders-table .customer-cell strong,
+        .orders-page .orders-table .total-cell strong {
+            font-size: 1rem;
+            color: var(--dark-color);
+        }
+
+        .orders-page .orders-table .invoice-cell small,
+        .orders-page .orders-table .customer-cell small,
+        .orders-page .orders-table .invoice-email-cell .small {
+            font-size: 0.82rem;
+        }
+
+        .orders-page .orders-table .items-cell {
+            text-align: center;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .orders-page .orders-table .total-cell {
+            white-space: nowrap;
+        }
+
+        .orders-page .orders-table .payment-cell,
+        .orders-page .orders-table .status-cell {
+            min-width: 215px;
+        }
+
+        .orders-page .orders-table .invoice-email-cell {
+            min-width: 170px;
+        }
+
+        .orders-page .orders-table .date-cell {
+            min-width: 220px;
+        }
+
+        .orders-page .orders-table .date-main {
+            font-weight: 700;
+            color: var(--dark-color);
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+
+        .orders-page .orders-table .date-sub {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--secondary-color);
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+
+        .orders-page .orders-table .badge {
+            font-size: 0.79rem;
+            padding: 0.48rem 0.72rem;
+            font-weight: 700;
+        }
+
+        .orders-page .orders-table .order-payment-select,
+        .orders-page .orders-table .order-status-select {
+            min-width: 165px;
+            height: 40px;
+            font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .orders-page .orders-table .actions-cell {
+            min-width: 170px;
+        }
+
+        .orders-page .orders-table .actions-cell .btn {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 1200px) {
+            .orders-page .orders-table {
+                min-width: 1350px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .orders-page .main-content {
+                padding: 15px;
+            }
+
+            .orders-page .orders-table {
+                min-width: 1200px;
+            }
+
+            .orders-page .orders-table tbody td {
+                font-size: 0.9rem;
+                padding: 0.85rem;
+            }
+
+            .orders-page .orders-table .badge {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body class="admin-dashboard orders-page">
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../../images/logo.jpg" alt="Logo" class="sidebar-logo">
+            <h4 class="sidebar-title">Admin Portal</h4>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="nav-item"><a href="../dashboard.html" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li class="nav-item"><a href="website-content.html" class="nav-link"><i class="fas fa-globe"></i> Website Content</a></li>
+            <li class="nav-item"><a href="products.html" class="nav-link"><i class="fas fa-box"></i> Products</a></li>
+            <li class="nav-item"><a href="orders.html" class="nav-link active"><i class="fas fa-shopping-cart"></i> Orders</a></li>
+            <li class="nav-item"><a href="services.html" class="nav-link"><i class="fas fa-cogs"></i> Services</a></li>
+            <li class="nav-item"><a href="analytics.html" class="nav-link"><i class="fas fa-chart-bar"></i> Analytics</a></li>
+            <li class="nav-item"><a href="settings.html" class="nav-link"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1 class="page-title">Orders Management</h1>
+            <div class="user-menu">
+                <button class="btn btn-success me-3" id="refreshOrdersBtn">
+                    <i class="fas fa-sync me-2"></i>Refresh
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle me-2"></i>Account
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" id="logoutBtn"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: var(--primary-color);">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="stats-number" id="totalOrders">0</div>
+                    <div class="stats-label">Total Orders</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: var(--warning-color);">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stats-number" id="pendingOrders">0</div>
+                    <div class="stats-label">Pending</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: var(--success-color);">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stats-number" id="deliveredOrders">0</div>
+                    <div class="stats-label">Delivered</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: var(--danger-color);">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="stats-number" id="totalRevenue">RWF 0</div>
+                    <div class="stats-label">Revenue</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Search customer / invoice</label>
+                        <input id="searchInput" type="text" class="form-control" placeholder="Name, email, invoice number">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Order status</label>
+                        <select id="statusFilter" class="form-select">
+                            <option value="">All statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Shipped">Shipped</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="Refunded">Refunded</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Invoice email</label>
+                        <select id="invoiceEmailFilter" class="form-select">
+                            <option value="">All</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-outline-secondary w-100" id="resetFiltersBtn">
+                            <i class="fas fa-undo me-2"></i>Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card orders-panel">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>All Orders</h5>
+                <span class="badge bg-primary" id="ordersCountBadge">0 Orders</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0 orders-table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Invoice</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Invoice Email</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTable">
+                            <tr>
+                                <td colspan="9" class="text-center py-4">
+                                    <div class="spinner-border" role="status"></div>
+                                    <p class="mt-2">Loading orders...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-receipt me-2"></i>Order Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="orderDetailsBody">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin me-2"></i>Loading details...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/admin-auth.js"></script>
+    <script src="../assets/js/admin-api-service.js"></script>
+    <script>
+        const STATUS_OPTIONS = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'];
+        const PAYMENT_OPTIONS = ['Unpaid', 'Paid', 'Partially Paid', 'Refunded'];
+        let allOrders = [];
+        let filteredOrders = [];
+        let orderDetailsModal;
+        const inFlightSaves = new Set();
+        const deletingOrders = new Set();
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function getStatusBadgeClass(status) {
+            const classes = {
+                Pending: 'bg-warning text-dark',
+                Processing: 'bg-info text-dark',
+                Shipped: 'bg-primary',
+                Delivered: 'bg-success',
+                Cancelled: 'bg-danger',
+                Refunded: 'bg-secondary',
+            };
+            return classes[status] || 'bg-secondary';
+        }
+
+        function statusBadge(status) {
+            return `<span class="badge ${getStatusBadgeClass(status)}"><i class="fas fa-circle me-1" style="font-size:7px;"></i>${escapeHtml(status || 'Unknown')}</span>`;
+        }
+
+        function getPaymentBadgeClass(status) {
+            const classes = {
+                Unpaid: 'bg-danger',
+                Paid: 'bg-success',
+                'Partially Paid': 'bg-warning text-dark',
+                Refunded: 'bg-secondary',
+            };
+            return classes[status] || 'bg-secondary';
+        }
+
+        function paymentBadge(status) {
+            return `<span class="badge ${getPaymentBadgeClass(status)}"><i class="fas fa-circle me-1" style="font-size:7px;"></i>${escapeHtml(status || 'Unknown')}</span>`;
+        }
+
+        function invoiceEmailBadge(status) {
+            const classes = {
+                Sent: 'bg-success',
+                Pending: 'bg-warning text-dark',
+                Failed: 'bg-danger',
+            };
+            return `<span class="badge ${classes[status] || 'bg-secondary'}">${escapeHtml(status || 'Unknown')}</span>`;
+        }
+
+        function formatCurrency(value) {
+            return `RWF ${Number(value || 0).toLocaleString()}`;
+        }
+
+        function formatDateInWords(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '-';
+            }
+
+            const datePart = date.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+            });
+
+            const timePart = date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+            });
+
+            return `${datePart} at ${timePart}`;
+        }
+
+        function formatDateCell(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '<span class="text-muted">-</span>';
+            }
+
+            const datePart = date.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+            });
+
+            const timePart = date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+            });
+
+            return `
+                <span class="date-main">${escapeHtml(datePart)}</span>
+                <span class="date-sub">${escapeHtml(timePart)}</span>
+            `;
+        }
+
+        function showToast(message, type = 'success') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 320px;';
+            alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        function getApiErrorMessage(response, fallback) {
+            if (!response || typeof response !== 'object') {
+                return fallback;
+            }
+
+            if (response.error && typeof response.error === 'object' && response.error.message) {
+                return response.error.message;
+            }
+
+            if (typeof response.error === 'string' && response.error.trim()) {
+                return response.error.trim();
+            }
+
+            if (response.message && typeof response.message === 'string' && response.message.trim()) {
+                return response.message.trim();
+            }
+
+            return fallback;
+        }
+
+        async function loadOrders() {
+            const table = document.getElementById('ordersTable');
+            table.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center py-4">
+                        <div class="spinner-border" role="status"></div>
+                        <p class="mt-2">Loading orders...</p>
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const response = await adminAPIService.getAllOrders({ limit: 300, sort: '-createdAt' });
+                if (!response.success) {
+                    throw new Error(response?.error?.message || 'Unable to load orders');
+                }
+
+                allOrders = response.data.orders || [];
+                applyFilters();
+                updateStats();
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <i class="fas fa-triangle-exclamation fa-2x mb-2"></i>
+                            <p>Unable to load orders right now.</p>
+                        </td>
+                    </tr>
+                `;
+                showToast('Failed to load orders. Check backend connection.', 'danger');
+            }
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const invoiceEmailStatus = document.getElementById('invoiceEmailFilter').value;
+
+            filteredOrders = allOrders.filter((order) => {
+                const customer = `${order.customerName || ''} ${order.customerEmail || ''}`.toLowerCase();
+                const invoice = (order.invoiceNumber || '').toLowerCase();
+                const matchesSearch = !search || customer.includes(search) || invoice.includes(search);
+                const matchesStatus = !status || order.status === status;
+                const matchesEmail = !invoiceEmailStatus || order.invoiceEmailStatus === invoiceEmailStatus;
+                return matchesSearch && matchesStatus && matchesEmail;
+            });
+
+            renderOrders();
+        }
+
+        function renderOrders() {
+            const table = document.getElementById('ordersTable');
+            const badge = document.getElementById('ordersCountBadge');
+            badge.textContent = `${filteredOrders.length} Orders`;
+
+            if (filteredOrders.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <i class="fas fa-box-open fa-2x mb-2"></i>
+                            <p>No orders match your filters.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            table.innerHTML = filteredOrders.map((order) => {
+                const statusOptions = STATUS_OPTIONS.map((option) => `
+                    <option value="${option}" ${order.status === option ? 'selected' : ''}>${option}</option>
+                `).join('');
+                const selectedPayment = order.paymentStatus || 'Unpaid';
+                const paymentOptions = PAYMENT_OPTIONS.map((option) => `
+                    <option value="${option}" ${selectedPayment === option ? 'selected' : ''}>${option}</option>
+                `).join('');
+
+                return `
+                    <tr>
+                        <td class="invoice-cell">
+                            <strong>${escapeHtml(order.invoiceNumber || '-')}</strong><br>
+                            <small class="text-muted">${escapeHtml(order._id || '')}</small>
+                        </td>
+                        <td class="customer-cell">
+                            <div>
+                                <strong>${escapeHtml(order.customerName || '-')}</strong><br>
+                                <small class="text-muted">${escapeHtml(order.customerEmail || '-')}</small><br>
+                                <small class="text-muted">${escapeHtml(order.customerPhone || '-')}</small>
+                            </div>
+                        </td>
+                        <td class="items-cell">${order.items?.length || 0} item(s)</td>
+                        <td class="total-cell"><strong>${formatCurrency(order.totalAmount)}</strong></td>
+                        <td class="payment-cell">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="live-payment-badge" data-order-id="${order._id}">
+                                    ${paymentBadge(order.paymentStatus)}
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <select class="form-select order-payment-select" data-order-id="${order._id}">
+                                        ${paymentOptions}
+                                    </select>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="status-cell">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="live-status-badge" data-order-id="${order._id}">
+                                    ${statusBadge(order.status)}
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <select class="form-select order-status-select" data-order-id="${order._id}">${statusOptions}</select>
+                                    <button class="btn btn-outline-primary save-order-btn" data-order-id="${order._id}" title="Save payment and status">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="invoice-email-cell">
+                            ${invoiceEmailBadge(order.invoiceEmailStatus)}
+                            ${order.invoiceEmailError ? `<div class="small text-danger mt-1">${escapeHtml(order.invoiceEmailError)}</div>` : ''}
+                        </td>
+                        <td class="date-cell">${formatDateCell(order.createdAt)}</td>
+                        <td class="actions-cell">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary view-order-btn" data-order-id="${order._id}" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <a href="http://localhost:3001/api/orders/${order._id}/invoice" class="btn btn-outline-success" target="_blank" rel="noopener" title="Download Invoice">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                                <button class="btn btn-outline-danger delete-order-btn" data-order-id="${order._id}" title="Delete Order">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('totalOrders').textContent = allOrders.length;
+            document.getElementById('pendingOrders').textContent = allOrders.filter((order) => order.status === 'Pending').length;
+            document.getElementById('deliveredOrders').textContent = allOrders.filter((order) => order.status === 'Delivered').length;
+
+            const revenue = allOrders
+                .filter((order) => order.status === 'Delivered' || order.paymentStatus === 'Paid')
+                .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+
+            document.getElementById('totalRevenue').textContent = formatCurrency(revenue);
+        }
+
+        function renderOrderItems(items = []) {
+            if (!items.length) {
+                return '<p class="text-muted">No order items found.</p>';
+            }
+
+            return `
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Unit Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map((item) => `
+                                <tr>
+                                    <td>${escapeHtml(item.productName || item.productId?.name || '-')}</td>
+                                    <td>${Number(item.quantity || 0)}</td>
+                                    <td>${formatCurrency(item.price)}</td>
+                                    <td>${formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function openOrderDetails(orderId) {
+            const order = allOrders.find((item) => item._id === orderId);
+            if (!order) return;
+
+            const body = document.getElementById('orderDetailsBody');
+            body.innerHTML = `
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <h6 class="text-uppercase text-muted">Customer</h6>
+                        <div class="card border-0 bg-light">
+                            <div class="card-body">
+                                <p class="mb-1"><strong>Name:</strong> ${escapeHtml(order.customerName || '-')}</p>
+                                <p class="mb-1"><strong>Email:</strong> ${escapeHtml(order.customerEmail || '-')}</p>
+                                <p class="mb-1"><strong>Phone:</strong> ${escapeHtml(order.customerPhone || '-')}</p>
+                                <p class="mb-0"><strong>Address:</strong> ${escapeHtml(order.customerAddress || '-')}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <h6 class="text-uppercase text-muted">Order</h6>
+                        <div class="card border-0 bg-light">
+                            <div class="card-body">
+                                <p class="mb-1"><strong>Invoice:</strong> ${escapeHtml(order.invoiceNumber || '-')}</p>
+                                <p class="mb-1"><strong>Status:</strong> ${statusBadge(order.status)}</p>
+                                <p class="mb-1"><strong>Payment:</strong> ${paymentBadge(order.paymentStatus)}</p>
+                                <p class="mb-1"><strong>Invoice Email:</strong> ${invoiceEmailBadge(order.invoiceEmailStatus)}</p>
+                                <p class="mb-1"><strong>Created:</strong> ${formatDateInWords(order.createdAt)}</p>
+                                <p class="mb-0"><strong>Total:</strong> ${formatCurrency(order.totalAmount)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h6 class="text-uppercase text-muted">Items</h6>
+                    ${renderOrderItems(order.items)}
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a href="http://localhost:3001/api/orders/${order._id}/invoice" class="btn btn-success" target="_blank" rel="noopener">
+                        <i class="fas fa-file-pdf me-2"></i>Open Invoice PDF
+                    </a>
+                </div>
+            `;
+
+            if (!orderDetailsModal) {
+                orderDetailsModal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+            }
+            orderDetailsModal.show();
+        }
+
+        function updateOrderInMemory(orderId, updatedOrder = {}) {
+            const fields = ['status', 'paymentStatus', 'trackingNumber'];
+            const applyTo = (target) => {
+                if (!target) return;
+                fields.forEach((field) => {
+                    if (updatedOrder[field] !== undefined) {
+                        target[field] = updatedOrder[field];
+                    }
+                });
+            };
+
+            applyTo(allOrders.find((item) => item._id === orderId));
+            applyTo(filteredOrders.find((item) => item._id === orderId));
+        }
+
+        async function saveOrderStatus(orderId, options = {}) {
+            const { refresh = true, showSuccessToast = true } = options;
+            const statusSelector = document.querySelector(`.order-status-select[data-order-id="${orderId}"]`);
+            const paymentSelector = document.querySelector(`.order-payment-select[data-order-id="${orderId}"]`);
+            const saveButton = document.querySelector(`.save-order-btn[data-order-id="${orderId}"]`);
+            if (!statusSelector || inFlightSaves.has(orderId)) return;
+
+            const selectedStatus = statusSelector.value;
+            const selectedPaymentStatus = paymentSelector ? paymentSelector.value : undefined;
+            const payload = { status: selectedStatus };
+            if (selectedPaymentStatus !== undefined) {
+                payload.paymentStatus = selectedPaymentStatus;
+            }
+
+            inFlightSaves.add(orderId);
+            if (saveButton) {
+                saveButton.disabled = true;
+            }
+
+            try {
+                const response = await adminAPIService.updateOrderStatus(orderId, payload);
+                if (!response.success) {
+                    throw new Error(getApiErrorMessage(response, 'Failed to update status'));
+                }
+
+                const updatedOrder = response?.data?.order || {
+                    status: selectedStatus,
+                    paymentStatus: selectedPaymentStatus,
+                };
+                updateOrderInMemory(orderId, updatedOrder);
+
+                if (showSuccessToast) {
+                    showToast(`Order updated: ${updatedOrder.status || selectedStatus} / ${updatedOrder.paymentStatus || selectedPaymentStatus || 'Unpaid'}.`);
+                }
+
+                if (refresh) {
+                    await loadOrders();
+                    return;
+                }
+
+                updateLiveBadge(orderId);
+                updateStats();
+            } catch (error) {
+                console.error('Error updating status:', error);
+                showToast(error.message || 'Unable to update order.', 'danger');
+                if (!refresh) {
+                    await loadOrders();
+                }
+            } finally {
+                inFlightSaves.delete(orderId);
+                if (saveButton) {
+                    saveButton.disabled = false;
+                }
+            }
+        }
+
+        async function deleteOrder(orderId, triggerButton = null) {
+            if (!orderId || deletingOrders.has(orderId)) return;
+
+            const order = allOrders.find((item) => item._id === orderId);
+            const invoiceLabel = order?.invoiceNumber || orderId;
+            const shouldDelete = window.confirm(`Delete order ${invoiceLabel}? This action cannot be undone.`);
+            if (!shouldDelete) return;
+
+            deletingOrders.add(orderId);
+            if (triggerButton) {
+                triggerButton.disabled = true;
+                triggerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                const response = await adminAPIService.deleteOrder(orderId);
+                if (!response.success) {
+                    const apiMessage = getApiErrorMessage(response, 'Failed to delete order');
+                    if (/not authorized|missing token|invalid token/i.test(apiMessage)) {
+                        throw new Error('Delete is blocked by backend auth (401). Restart backend to load latest route changes, then try again.');
+                    }
+                    throw new Error(apiMessage);
+                }
+
+                showToast(`Order ${invoiceLabel} deleted successfully.`);
+                await loadOrders();
+            } catch (error) {
+                console.error('Error deleting order:', error);
+                showToast(error.message || 'Unable to delete order.', 'danger');
+            } finally {
+                deletingOrders.delete(orderId);
+                if (triggerButton) {
+                    triggerButton.disabled = false;
+                    triggerButton.innerHTML = '<i class="fas fa-trash"></i>';
+                }
+            }
+        }
+
+        function updateLiveBadge(orderId) {
+            const statusSelector = document.querySelector(`.order-status-select[data-order-id="${orderId}"]`);
+            const paymentSelector = document.querySelector(`.order-payment-select[data-order-id="${orderId}"]`);
+            const statusBadgeContainer = document.querySelector(`.live-status-badge[data-order-id="${orderId}"]`);
+            const paymentBadgeContainer = document.querySelector(`.live-payment-badge[data-order-id="${orderId}"]`);
+
+            if (statusSelector && statusBadgeContainer) {
+                statusBadgeContainer.innerHTML = statusBadge(statusSelector.value);
+            }
+
+            if (paymentSelector && paymentBadgeContainer) {
+                paymentBadgeContainer.innerHTML = paymentBadge(paymentSelector.value);
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById('refreshOrdersBtn').addEventListener('click', loadOrders);
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.getElementById('invoiceEmailFilter').addEventListener('change', applyFilters);
+
+            document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+                document.getElementById('searchInput').value = '';
+                document.getElementById('statusFilter').value = '';
+                document.getElementById('invoiceEmailFilter').value = '';
+                applyFilters();
+            });
+
+            document.getElementById('ordersTable').addEventListener('click', async (event) => {
+                const saveButton = event.target.closest('.save-order-btn');
+                if (saveButton) {
+                    await saveOrderStatus(saveButton.dataset.orderId);
+                    return;
+                }
+
+                const viewButton = event.target.closest('.view-order-btn');
+                if (viewButton) {
+                    openOrderDetails(viewButton.dataset.orderId);
+                    return;
+                }
+
+                const deleteButton = event.target.closest('.delete-order-btn');
+                if (deleteButton) {
+                    await deleteOrder(deleteButton.dataset.orderId, deleteButton);
+                }
+            });
+
+            document.getElementById('ordersTable').addEventListener('change', async (event) => {
+                const statusSelector = event.target.closest('.order-status-select');
+                if (statusSelector) {
+                    const orderId = statusSelector.dataset.orderId;
+                    updateLiveBadge(orderId);
+                    await saveOrderStatus(orderId, { refresh: false, showSuccessToast: false });
+                    return;
+                }
+
+                const paymentSelector = event.target.closest('.order-payment-select');
+                if (paymentSelector) {
+                    const orderId = paymentSelector.dataset.orderId;
+                    updateLiveBadge(orderId);
+                    await saveOrderStatus(orderId, { refresh: false, showSuccessToast: false });
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            bindEvents();
+            loadOrders();
+        });
+    </script>
+</body>
+</html>
