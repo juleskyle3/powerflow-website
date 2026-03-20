@@ -2,7 +2,7 @@
 // API Integration for Power Flow Services
 // ============================================
 
-const API_BASE_URL = 'http://localhost:5001/api';
+let API_BASE_URL = '/api';
 
 const api = {
   // ============ AUTHENTICATION ============

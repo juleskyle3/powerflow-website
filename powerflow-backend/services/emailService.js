@@ -279,6 +279,14 @@ function isSmtpConfigured() {
 }
 
 function isGoogleCredentialsPresent() {
+  // Render-friendly: allow env-only Gmail OAuth credentials.
+  const envClientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+  const envClientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const envRedirectUri = String(process.env.GOOGLE_OAUTH_REDIRECT_URI || '').trim();
+  if (envClientId && envClientSecret && envRedirectUri) {
+    return true;
+  }
+
   const configuredPath = process.env.GOOGLE_CREDENTIALS_PATH || 'credentials.json';
   const credentialsPath = path.isAbsolute(configuredPath)
     ? configuredPath
@@ -309,7 +317,17 @@ async function sendInvoiceEmail({
   orderTotal,
   invoiceBuffer,
 }) {
-  const invoiceUrl = `${process.env.BACKEND_PUBLIC_URL || 'http://localhost:3001'}/api/orders/${orderId}/invoice`;
+  const firstUrl = (value) => String(value || '').split(',')[0].trim();
+  const publicBaseUrl = (
+    firstUrl(process.env.PUBLIC_APP_URL)
+    || firstUrl(process.env.FRONTEND_PUBLIC_URL)
+    || firstUrl(process.env.FRONTEND_URL)
+    || firstUrl(process.env.BACKEND_PUBLIC_URL)
+    || 'http://localhost:3000'
+  ).replace(/\/+$/, '');
+
+  // Point to the public website (recommended) because it proxies `/api/*` to the backend.
+  const invoiceUrl = `${publicBaseUrl}/api/orders/${orderId}/invoice`;
   const subject = `Your Power Flow Invoice ${invoiceNumber}`;
 
   const textBody = [

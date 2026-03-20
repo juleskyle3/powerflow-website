@@ -77,7 +77,14 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 // Serve static files (invoices)
-app.use('/invoices', express.static('public/invoices'));
+const invoiceDirConfigured = String(process.env.INVOICE_DIR || '').trim();
+const invoiceDir = invoiceDirConfigured
+  ? (path.isAbsolute(invoiceDirConfigured)
+    ? invoiceDirConfigured
+    : path.resolve(path.join(__dirname, invoiceDirConfigured)))
+  : path.join(__dirname, 'public', 'invoices');
+
+app.use('/invoices', express.static(invoiceDir));
 app.use(getUploadPublicPrefix(), express.static(path.resolve(getUploadRootDir())));
 
 // Connect to MongoDB
@@ -100,6 +107,19 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     version: '1.0.0',
+  });
+});
+
+// Basic root route (helps avoid confusing 404s when someone opens the backend URL in a browser)
+app.get('/', (req, res) => {
+  res.json({
+    service: 'powerflow-backend',
+    status: 'OK',
+    routes: {
+      health: '/api/health',
+      api: '/api/*',
+      gmailOAuth: '/auth/google',
+    },
   });
 });
 

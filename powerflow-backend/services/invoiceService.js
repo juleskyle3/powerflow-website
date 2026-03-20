@@ -19,7 +19,18 @@ const COLORS = {
   lightBg: '#f8fafc',
 };
 
-const INVOICE_DIR = path.join(__dirname, '../public/invoices');
+function resolveInvoiceDir() {
+  const configured = String(process.env.INVOICE_DIR || '').trim();
+  if (!configured) {
+    return path.join(__dirname, '../public/invoices');
+  }
+
+  return path.isAbsolute(configured)
+    ? configured
+    : path.resolve(path.join(__dirname, '..', configured));
+}
+
+const INVOICE_DIR = resolveInvoiceDir();
 
 function asNumber(value) {
   const parsed = Number(value);

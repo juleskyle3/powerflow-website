@@ -61,25 +61,52 @@ function ensureGoogleApisInstalled() {
 }
 
 function loadOAuthCredentials() {
+  const looksLikePlaceholder = (value) => /^replace[_\-\s]?with/i.test(String(value || '').trim());
+
+  const envClientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+  const envClientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const envRedirectUri = String(process.env.GOOGLE_OAUTH_REDIRECT_URI || '').trim();
+
+  // Render-friendly: allow env-only credentials (no credentials.json needed).
+  if (envClientId && envClientSecret && envRedirectUri) {
+    if (looksLikePlaceholder(envClientSecret)) {
+      throw new Error('GOOGLE_CLIENT_SECRET is still a placeholder. Set your real Google OAuth client secret.');
+    }
+
+    return {
+      clientId: envClientId,
+      clientSecret: envClientSecret,
+      redirectUri: envRedirectUri,
+      source: 'env',
+    };
+  }
+
   const credentialsPath = resolveCredentialsPath();
 
   if (!fs.existsSync(credentialsPath)) {
-    throw new Error(`Google credentials file not found at ${credentialsPath}`);
+    throw new Error(
+      `Google OAuth credentials are not configured. Missing credentials file at ${credentialsPath}. ` +
+      'Either provide GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_OAUTH_REDIRECT_URI env vars, ' +
+      'or set GOOGLE_CREDENTIALS_PATH to a valid credentials.json.'
+    );
   }
 
   const raw = fs.readFileSync(credentialsPath, 'utf8');
   const parsed = JSON.parse(raw);
   const config = parsed.web || parsed.installed || parsed;
 
-  const clientId = process.env.GOOGLE_CLIENT_ID || config.client_id;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || config.client_secret;
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || (Array.isArray(config.redirect_uris) ? config.redirect_uris[0] : undefined);
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || config.client_id || '').trim();
+  const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || config.client_secret || '').trim();
+  const redirectUri = String(
+    process.env.GOOGLE_OAUTH_REDIRECT_URI
+    || (Array.isArray(config.redirect_uris) ? config.redirect_uris[0] : '')
+    || ''
+  ).trim();
 
   if (!clientId || !clientSecret || !redirectUri) {
     throw new Error('Missing Google OAuth credentials. Ensure client_id, client_secret, and redirect URI are set.');
   }
 
-  const looksLikePlaceholder = (value) => /^replace[_\-\s]?with/i.test(String(value || '').trim());
   if (looksLikePlaceholder(clientSecret)) {
     throw new Error('Google client_secret is still a placeholder. Update credentials.json with your real client secret.');
   }
@@ -88,6 +115,7 @@ function loadOAuthCredentials() {
     clientId,
     clientSecret,
     redirectUri,
+    source: 'file',
   };
 }
 
@@ -262,7 +290,8 @@ async function getAuthStatus() {
       authorized: Boolean(tokens && (tokens.refresh_token || tokens.access_token)),
       hasRefreshToken: Boolean(tokens && tokens.refresh_token),
       redirectUri: credentials.redirectUri,
-      credentialsPath: resolveCredentialsPath(),
+      credentialsSource: credentials.source || null,
+      credentialsPath: credentials.source === 'file' ? resolveCredentialsPath() : null,
       tokenPath,
       tokenFileExists,
       configuredScopes,

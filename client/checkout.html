@@ -186,7 +186,7 @@
     <script src="js/api-service.js"></script>
     <script>
         const DELIVERY_FEE = 5000;
-        const ORDER_API_URL = 'http://localhost:3001/api/orders';
+        const ORDER_API_URL = '/api/orders';
 
         function updateSummary() {
             const subtotal = cartManager.getTotal();
@@ -222,7 +222,7 @@
             if (existing) existing.remove();
 
             const order = payload.order || {};
-            const invoiceUrl = payload.invoiceUrl ? `http://localhost:3001${payload.invoiceUrl}` : '#';
+            const invoiceUrl = payload.invoiceUrl ? `${payload.invoiceUrl}` : '#';
             const emailAlert = payload.invoiceEmailSent
                 ? `<div class=\"alert alert-success mb-3\"><i class=\"fas fa-envelope-check me-2\"></i>Invoice sent to <strong>${order.customerEmail}</strong>.</div>`
                 : `<div class=\"alert alert-warning mb-3\"><i class=\"fas fa-envelope-open-text me-2\"></i>Order saved, but email sending failed: ${payload.invoiceEmailError || 'SMTP not configured.'}</div>`;
