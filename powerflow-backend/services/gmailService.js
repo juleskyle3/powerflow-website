@@ -65,7 +65,9 @@ function loadOAuthCredentials() {
 
   const envClientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
   const envClientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
-  const envRedirectUri = String(process.env.GOOGLE_OAUTH_REDIRECT_URI || '').trim();
+  const envRedirectUriConfigured = String(process.env.GOOGLE_OAUTH_REDIRECT_URI || '').trim();
+  const backendPublicUrl = String(process.env.BACKEND_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  const envRedirectUri = envRedirectUriConfigured || (backendPublicUrl ? `${backendPublicUrl}/oauth2callback` : '');
 
   // Render-friendly: allow env-only credentials (no credentials.json needed).
   if (envClientId && envClientSecret && envRedirectUri) {
@@ -99,6 +101,7 @@ function loadOAuthCredentials() {
   const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || config.client_secret || '').trim();
   const redirectUri = String(
     process.env.GOOGLE_OAUTH_REDIRECT_URI
+    || (backendPublicUrl ? `${backendPublicUrl}/oauth2callback` : '')
     || (Array.isArray(config.redirect_uris) ? config.redirect_uris[0] : '')
     || ''
   ).trim();
