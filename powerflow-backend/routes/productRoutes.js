@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const productController = require('../controllers/productController');
 const authMiddleware = require('../middleware/authMiddleware');
-const productImageUpload = require('../middleware/productImageUpload');
-const { buildProductFileUrl, getProductUploadPublicPath } = require('../config/uploads');
+const { uploadProductImages } = require('../config/cloudinary');
 const { body, query, param } = require('express-validator');
 
-const uploadProductImages = productImageUpload.fields([
+const uploadProductCloudinary = uploadProductImages.fields([
   { name: 'primaryImage', maxCount: 1 },
   { name: 'galleryImages', maxCount: 10 },
 ]);
@@ -86,13 +84,13 @@ router.post('/', [
 ], productController.createProduct);
 
 // @route  POST /api/products/upload-images
-// @desc   Upload primary and gallery product images
+// @desc   Upload primary and gallery product images to Cloudinary
 // @access Public (temporarily for testing)
 router.post('/upload-images', (req, res, next) => {
-  uploadProductImages(req, res, (error) => {
+  uploadProductCloudinary(req, res, (error) => {
     if (error) {
       res.status(400);
-      if (error instanceof multer.MulterError) {
+      if (error.message && error.message.includes('Unexpected field')) {
         return next(new Error(`Image upload failed: ${error.message}`));
       }
       return next(error);
@@ -106,16 +104,15 @@ router.post('/upload-images', (req, res, next) => {
       return next(new Error('No image files uploaded.'));
     }
 
-    const primaryImage = primaryFile ? buildProductFileUrl(req, primaryFile.filename) : null;
-    const additionalImages = galleryFiles.map((file) => buildProductFileUrl(req, file.filename));
+    const primaryImage = primaryFile ? primaryFile.path : null;
+    const additionalImages = galleryFiles.map((file) => file.path);
 
     return res.status(200).json({
       success: true,
-      message: 'Images uploaded successfully',
+      message: 'Images uploaded successfully to Cloudinary',
       data: {
         primaryImage,
         additionalImages,
-        uploadPublicPath: getProductUploadPublicPath(),
       },
     });
   });

@@ -10,14 +10,20 @@
     "install-backend": "cd powerflow-backend && npm install"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "mongodb": "^7.5.0",
     "path": "^0.12.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["powerflow", "services", "website", "admin"],
+  "keywords": [
+    "powerflow",
+    "services",
+    "website",
+    "admin"
+  ],
   "author": "Power Flow Services Ltd",
   "license": "ISC"
 }
