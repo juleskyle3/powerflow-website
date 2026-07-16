@@ -6,7 +6,7 @@ const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5050';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://api.powerflowservicesltd.com';
 
 // Enable CORS
 app.use(cors());
