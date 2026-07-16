@@ -436,7 +436,9 @@
             const resultsDiv = document.getElementById('directionsResults');
             resultsDiv.innerHTML = '<div class="loading">Searching for directions...</div>';
             
-            const apiUrl = window.APP_CONFIG?.API_BASE_URL || '/api';
+            const apiUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+              ? 'http://localhost:5050/api'
+              : 'https://api.powerflowservicesltd.com/api';
             fetch(`${apiUrl}/directions?origin=${encodeURIComponent(origin)}`)
                 .then(response => response.json())
                 .then(data => {
@@ -456,7 +458,9 @@
             const resultsDiv = document.getElementById('directionsResults');
             resultsDiv.innerHTML = '<div class="loading">Searching for directions...</div>';
             
-            const apiUrl = window.APP_CONFIG?.API_BASE_URL || '/api';
+            const apiUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+              ? 'http://localhost:5050/api'
+              : 'https://api.powerflowservicesltd.com/api';
             fetch(`${apiUrl}/directions/coordinates?lat=${lat}&lng=${lng}`)
                 .then(response => response.json())
                 .then(data => {

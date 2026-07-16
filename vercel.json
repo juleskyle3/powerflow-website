@@ -8,28 +8,20 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "server.js"
+      "src": "/admin/assets/(.*)",
+      "dest": "/admin/assets/$1"
     },
     {
-      "src": "/auth/(.*)",
-      "dest": "server.js"
-    },
-    {
-      "src": "/oauth2callback",
-      "dest": "server.js"
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "server.js"
-    },
-    {
-      "src": "/invoices/(.*)",
-      "dest": "server.js"
+      "src": "/admin/pages/(.*)",
+      "dest": "/admin/pages/$1"
     },
     {
       "src": "/admin/(.*)",
       "dest": "server.js"
+    },
+    {
+      "src": "/(css|js|images|fonts)/(.*)",
+      "dest": "/client/$&"
     },
     {
       "src": "/(.*)",

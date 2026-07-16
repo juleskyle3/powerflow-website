@@ -1,8 +1,7 @@
-// Backend API URL - update this with your VPS IP
-const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 
-  (window.location.hostname === 'localhost' 
-    ? 'http://localhost:5050/api'
-    : 'http://YOUR-VPS-IP:5050/api');
+// Backend API URL - calls backend directly, no proxy needed
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:5050/api'
+  : 'https://api.powerflowservicesltd.com/api';
 
 class APIService {
   async getAllProducts(params = {}) {

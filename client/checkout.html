@@ -187,7 +187,9 @@
     <script src="js/api-service.js"></script>
     <script>
         const DELIVERY_FEE = 5000;
-        const ORDER_API_URL = window.APP_CONFIG?.API_BASE_URL?.replace('/api', '/api/orders') || '/api/orders';
+        const ORDER_API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+          ? 'http://localhost:5050/api/orders'
+          : 'https://api.powerflowservicesltd.com/api/orders';
 
         function updateSummary() {
             const subtotal = cartManager.getTotal();
