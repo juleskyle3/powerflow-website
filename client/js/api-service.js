@@ -1,4 +1,8 @@
-const API_BASE_URL = '/api';
+// Backend API URL - update this with your VPS IP
+const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:5050/api'
+    : 'http://YOUR-VPS-IP:5050/api');
 
 class APIService {
   async getAllProducts(params = {}) {
