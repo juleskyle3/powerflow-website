@@ -6,26 +6,11 @@
       "use": "@vercel/node"
     }
   ],
+  "outputDirectory": "client",
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "status": 404
-    },
-    {
-      "src": "/admin/assets/(.*)",
-      "dest": "/admin/assets/$1"
-    },
-    {
-      "src": "/admin/pages/(.*)",
-      "dest": "/admin/pages/$1"
-    },
     {
       "src": "/admin/(.*)",
       "dest": "server.js"
-    },
-    {
-      "src": "/(css|js|images|fonts)/(.*)",
-      "dest": "/client/$&"
     },
     {
       "src": "/(.*)",

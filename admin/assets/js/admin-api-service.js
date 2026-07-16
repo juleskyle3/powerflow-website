@@ -1,4 +1,6 @@
-const ADMIN_API_BASE_URL = '/api';
+const ADMIN_API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:5050/api'
+  : 'https://api.powerflowservicesltd.com/api';
 
 class AdminAPIService {
   async getAllProducts(params = {}) {
