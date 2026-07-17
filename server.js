@@ -13,7 +13,7 @@ const ADMIN_HOSTNAMES = [
 app.use(cors());
 
 function isAdminHost(req) {
-    const host = (req.get('x-forwarded-host') || req.hostname || '').toLowerCase();
+    const host = (req.get('x-forwarded-host') || req.get('host') || req.hostname || '').toLowerCase();
     return ADMIN_HOSTNAMES.some((h) => host === h || host.endsWith('.' + h));
 }
 

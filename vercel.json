@@ -6,12 +6,7 @@
       "use": "@vercel/node"
     }
   ],
-  "outputDirectory": "client",
   "routes": [
-    {
-      "src": "/admin/(.*)",
-      "dest": "server.js"
-    },
     {
       "src": "/(.*)",
       "dest": "server.js"
