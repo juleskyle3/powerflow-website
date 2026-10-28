@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs/promises');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
@@ -47,6 +48,59 @@ function sanitizeText(value, fallback = '') {
 
 function hasEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function buildAbsoluteInvoiceUrl(req, order) {
+  const token = order.invoiceAccessToken
+    ? `?token=${encodeURIComponent(order.invoiceAccessToken)}`
+    : '';
+
+  return `${req.protocol}://${req.get('host')}/api/orders/${order._id}/invoice${token}`;
+}
+
+function secureCompare(expected, provided) {
+  const expectedBuffer = Buffer.from(String(expected || ''));
+  const providedBuffer = Buffer.from(String(provided || ''));
+
+  if (expectedBuffer.length === 0 || expectedBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+}
+
+function sendInvoiceErrorPage(res, status, title, message) {
+  return res.status(status).type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>${title} - Power Flow Services Ltd</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      background: #f3f6fb; color: #1f2937; font-family: Arial, Helvetica, sans-serif; }
+    .card { width: 100%; max-width: 520px; background: #fff; border-radius: 14px; padding: 32px;
+      text-align: center; box-shadow: 0 12px 35px rgba(15, 23, 42, 0.12); }
+    .icon { width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+      display: grid; place-items: center; background: #eef2ff; color: #4c62a8;
+      font-size: 26px; font-weight: 700; }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    p { margin: 0 0 24px; line-height: 1.6; color: #6b7280; }
+    a { display: inline-block; padding: 12px 22px; border-radius: 8px; background: #4c62a8;
+      color: #fff; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">!</div>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    <a href="https://www.powerflowservicesltd.com/products">Return to Products</a>
+  </main>
+</body>
+</html>`);
 }
 
 async function buildUniqueInvoiceNumber() {
@@ -147,7 +201,7 @@ async function attachInvoiceToOrder(order) {
   return { fileName, filePath, pdfBuffer };
 }
 
-async function trySendInvoiceEmail(order, invoiceBuffer) {
+async function trySendInvoiceEmail(order, invoiceBuffer, invoiceUrl) {
   if (!isEmailConfigured()) {
     order.invoiceEmailStatus = 'Failed';
     order.invoiceEmailError = 'SMTP is not configured on the server.';
@@ -160,9 +214,9 @@ async function trySendInvoiceEmail(order, invoiceBuffer) {
       customerEmail: order.customerEmail,
       customerName: order.customerName,
       invoiceNumber: order.invoiceNumber,
-      orderId: order._id,
       orderTotal: order.totalAmount,
       invoiceBuffer,
+      invoiceUrl,
     });
 
     order.invoiceEmailStatus = 'Sent';
@@ -207,6 +261,7 @@ orderController.createOrder = async (req, res, next) => {
     const totalAmount = subtotal + shippingCost + tax;
 
     const invoiceNumber = await buildUniqueInvoiceNumber();
+    const invoiceAccessToken = crypto.randomBytes(24).toString('hex');
     const normalizedShippingMethod = SHIPPING_METHODS.includes(sanitizeText(shippingMethod))
       ? sanitizeText(shippingMethod)
       : 'Standard';
@@ -222,6 +277,7 @@ orderController.createOrder = async (req, res, next) => {
       tax,
       totalAmount,
       invoiceNumber,
+      invoiceAccessToken,
       notes: sanitizeText(notes),
       shippingMethod: normalizedShippingMethod,
       status: 'Pending',
@@ -231,11 +287,13 @@ orderController.createOrder = async (req, res, next) => {
 
     await decrementStock(orderItems);
 
+    const invoiceUrl = buildAbsoluteInvoiceUrl(req, order);
+
     let emailResult = { sent: false, error: null };
     try {
       const invoice = await attachInvoiceToOrder(order);
       // Transaction email trigger: send invoice immediately after order is created.
-      emailResult = await trySendInvoiceEmail(order, invoice.pdfBuffer);
+      emailResult = await trySendInvoiceEmail(order, invoice.pdfBuffer, invoiceUrl);
     } catch (invoiceError) {
       order.invoiceEmailStatus = 'Failed';
       order.invoiceEmailError = `Invoice generation failed: ${invoiceError.message}`;
@@ -248,7 +306,7 @@ orderController.createOrder = async (req, res, next) => {
       message: 'Order created successfully',
       data: {
         order,
-        invoiceUrl: `/api/orders/${order._id}/invoice`,
+        invoiceUrl,
         invoiceEmailSent: emailResult.sent,
         invoiceEmailError: emailResult.error || null,
       },
@@ -463,12 +521,37 @@ orderController.getOrderStats = async (req, res, next) => {
   }
 };
 
-// Download invoice (public)
-orderController.downloadInvoice = async (req, res, next) => {
+// Download invoice (order-specific access token)
+orderController.downloadInvoice = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendInvoiceErrorPage(
+        res,
+        404,
+        'Invoice not found',
+        'We could not find this invoice. Please check the link or contact us for assistance.'
+      );
+    }
+
     const order = await Order.findById(req.params.id);
     if (!order || !order.isActive) {
-      return next(new NotFoundError('Order'));
+      return sendInvoiceErrorPage(
+        res,
+        404,
+        'Invoice not found',
+        'We could not find this invoice. It may have been removed. Please contact us for assistance.'
+      );
+    }
+
+    // Legacy orders without a token keep working so old invoice links remain
+    // valid. Every newly created order has a non-guessable token.
+    if (order.invoiceAccessToken && !secureCompare(order.invoiceAccessToken, req.query.token)) {
+      return sendInvoiceErrorPage(
+        res,
+        403,
+        'Invoice access denied',
+        'This invoice link is invalid. Please use the link from your order confirmation email or contact us for a new copy.'
+      );
     }
 
     let invoicePath = order.invoicePath || getInvoiceFilePath(order.invoiceNumber);
@@ -485,9 +568,34 @@ orderController.downloadInvoice = async (req, res, next) => {
       await order.save();
     }
 
-    res.download(invoicePath, `Invoice-${order.invoiceNumber}.pdf`);
+    // Invoices contain customer data, so never let browsers or proxies cache them.
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    res.download(invoicePath, `Invoice-${order.invoiceNumber}.pdf`, (downloadError) => {
+      if (!downloadError) return;
+
+      console.error('Invoice download failed:', downloadError);
+      if (!res.headersSent) {
+        sendInvoiceErrorPage(
+          res,
+          500,
+          'Invoice unavailable',
+          'We could not prepare this invoice right now. Please try again or contact us for assistance.'
+        );
+      }
+    });
   } catch (error) {
-    next(error);
+    console.error('Invoice download failed:', error);
+    if (!res.headersSent) {
+      sendInvoiceErrorPage(
+        res,
+        500,
+        'Invoice unavailable',
+        'We could not prepare this invoice right now. Please try again or contact us for assistance.'
+      );
+    }
   }
 };
 

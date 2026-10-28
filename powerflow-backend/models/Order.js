@@ -69,6 +69,12 @@ const orderSchema = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  // Non-guessable token required to download this order's invoice. Generated
+  // explicitly when an order is created. Legacy orders created before this
+  // field existed have no token and remain downloadable so old links work.
+  invoiceAccessToken: {
+    type: String,
+  },
   invoiceFileName: {
     type: String,
   },

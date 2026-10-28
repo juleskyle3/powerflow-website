@@ -115,6 +115,16 @@ class AdminAPIService {
     }
   }
 
+  getInvoiceUrl(order) {
+    if (!order || !order._id) return '#';
+
+    const token = order.invoiceAccessToken
+      ? `?token=${encodeURIComponent(order.invoiceAccessToken)}`
+      : '';
+
+    return `${ADMIN_API_BASE_URL}/orders/${encodeURIComponent(order._id)}/invoice${token}`;
+  }
+
   async getOrderById(id) {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`);

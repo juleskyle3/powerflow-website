@@ -1,7 +1,20 @@
 // Backend API URL - calls backend directly, no proxy needed
-const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:5050/api'
-  : 'https://api.powerflowservicesltd.com/api';
+function resolveApiBaseUrl() {
+  const hostname = window.location.hostname;
+
+  // Local development: localhost and devices on the same private network
+  // (e.g. a phone opening http://192.168.x.x:3000) use the local backend.
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+  const isPrivateNetwork = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
+
+  if (isLocalHost || isPrivateNetwork) {
+    return `http://${hostname}:5050/api`;
+  }
+
+  return 'https://api.powerflowservicesltd.com/api';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 class APIService {
   async getAllProducts(params = {}) {

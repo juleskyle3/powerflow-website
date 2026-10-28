@@ -114,6 +114,7 @@ function drawInvoiceLayout(doc, order) {
     ['DATE', formatDate(order.createdAt)],
     ['INVOICE #', order.invoiceNumber],
     ['CUSTOMER ID', safe(order._id).slice(-6).toUpperCase()],
+    ['PAYMENT', order.paymentStatus || 'Unpaid'],
   ];
 
   metadataRows.forEach(([label, value], index) => {

@@ -4,6 +4,12 @@ const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_BACKEND_URL = (process.env.VERCEL || process.env.NODE_ENV === 'production')
+    ? 'https://api.powerflowservicesltd.com'
+    : 'http://localhost:5050';
+const BACKEND_API_BASE = (process.env.BACKEND_URL || DEFAULT_BACKEND_URL)
+    .replace(/\/+$/, '')
+    .replace(/\/api$/, '');
 
 const ADMIN_HOSTNAMES = [
     'admin.powerflowservicesltd.com',
@@ -31,6 +37,15 @@ app.use('/admin', express.static(path.join(__dirname, 'admin')));
 
 // Client website static assets
 app.use('/', express.static(path.join(__dirname, 'client')));
+
+// Invoices live on the backend API. Redirect old frontend-relative invoice
+// links so previously shared/emailed links still reach the PDF.
+app.get('/api/orders/:id/invoice', (req, res) => {
+    const token = typeof req.query.token === 'string' && req.query.token
+        ? `?token=${encodeURIComponent(req.query.token)}`
+        : '';
+    res.redirect(302, `${BACKEND_API_BASE}/api/orders/${encodeURIComponent(req.params.id)}/invoice${token}`);
+});
 
 // Admin subdomain: serve admin at root
 app.get('/', (req, res, next) => {

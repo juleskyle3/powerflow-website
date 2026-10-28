@@ -313,21 +313,15 @@ async function sendInvoiceEmail({
   customerEmail,
   customerName,
   invoiceNumber,
-  orderId,
   orderTotal,
   invoiceBuffer,
+  invoiceUrl,
 }) {
-  const firstUrl = (value) => String(value || '').split(',')[0].trim();
-  const publicBaseUrl = (
-    firstUrl(process.env.PUBLIC_APP_URL)
-    || firstUrl(process.env.FRONTEND_PUBLIC_URL)
-    || firstUrl(process.env.FRONTEND_URL)
-    || firstUrl(process.env.BACKEND_PUBLIC_URL)
-    || 'http://localhost:3000'
-  ).replace(/\/+$/, '');
-
-  // Point to the public website (recommended) because it proxies `/api/*` to the backend.
-  const invoiceUrl = `${publicBaseUrl}/api/orders/${orderId}/invoice`;
+  const downloadUrl = String(invoiceUrl || '').trim();
+  const downloadText = downloadUrl ? `You can also download it from: ${downloadUrl}` : '';
+  const downloadHtml = downloadUrl
+    ? `<p style="margin: 0 0 18px;"><a href="${downloadUrl}" style="color: #1e3a8a;">${downloadUrl}</a></p>`
+    : '';
   const subject = `Your Power Flow Invoice ${invoiceNumber}`;
 
   const textBody = [
@@ -338,7 +332,7 @@ async function sendInvoiceEmail({
     `Order Total: RWF ${Number(orderTotal || 0).toLocaleString('en-US')}`,
     '',
     `Your invoice PDF is attached to this email.`,
-    `You can also download it from: ${invoiceUrl}`,
+    downloadText,
     '',
     'Regards,',
     'Power Flow Services Ltd',
@@ -354,8 +348,8 @@ async function sendInvoiceEmail({
     <p style="margin: 0 0 6px;"><strong>Invoice Number:</strong> ${invoiceNumber}</p>
     <p style="margin: 0;"><strong>Order Total:</strong> RWF ${Number(orderTotal || 0).toLocaleString('en-US')}</p>
   </div>
-  <p style="margin: 0 0 14px;">The PDF invoice is attached. You can also download it here:</p>
-  <p style="margin: 0 0 18px;"><a href="${invoiceUrl}" style="color: #1e3a8a;">${invoiceUrl}</a></p>
+  <p style="margin: 0 0 14px;">The PDF invoice is attached${downloadUrl ? '. You can also download it here:' : '.'}</p>
+  ${downloadHtml}
   <p style="margin: 0;">Regards,<br><strong>Power Flow Services Ltd</strong><br>+250 781 393 649</p>
 </div>
 `.trim();
