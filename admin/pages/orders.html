@@ -213,6 +213,18 @@
             </div>
         </div>
 
+        <div id="gmailAuthAlert" class="alert alert-warning d-none" role="alert">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div>
+                    <h6 class="alert-heading mb-1"><i class="fas fa-envelope-open-text me-2"></i>Invoice emails are not connected</h6>
+                    <div id="gmailAuthMessage" class="small">Gmail authorization is required before invoices can be emailed.</div>
+                </div>
+                <a id="gmailAuthLink" class="btn btn-warning btn-sm text-nowrap" href="#" target="_blank" rel="noopener">
+                    <i class="fas fa-key me-2"></i>Authorize Gmail
+                </a>
+            </div>
+        </div>
+
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3">
@@ -312,6 +324,8 @@
         let orderDetailsModal;
         const inFlightSaves = new Set();
         const deletingOrders = new Set();
+        const sendingInvoices = new Set();
+        const GMAIL_AUTH_URL = adminAPIService.getGmailAuthUrl();
 
         function escapeHtml(value) {
             return String(value ?? '')
@@ -408,11 +422,12 @@
             `;
         }
 
-        function showToast(message, type = 'success') {
+        function showToast(message, type = 'success', allowHtml = false) {
             const alert = document.createElement('div');
             alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
             alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 320px;';
-            alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            const content = allowHtml ? message : escapeHtml(message);
+            alert.innerHTML = `${content}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
             document.body.appendChild(alert);
             setTimeout(() => alert.remove(), 5000);
         }
@@ -435,6 +450,82 @@
             }
 
             return fallback;
+        }
+
+        function formatInvoiceEmailError(message) {
+            const escaped = escapeHtml(message || 'Invoice email could not be sent.');
+            return escaped.replace(/(https?:\/\/[^\s<]+)|(\/auth\/google)/g, (match, url, authPath) => {
+                if (!url && authPath) {
+                    return `<a href="${escapeHtml(GMAIL_AUTH_URL)}" target="_blank" rel="noopener">Authorize Gmail</a>`;
+                }
+
+                let href = url;
+                let trailing = '';
+                const trailingMatch = url.match(/[.,)]+$/);
+                if (trailingMatch) {
+                    trailing = trailingMatch[0];
+                    href = url.slice(0, -trailing.length);
+                }
+
+                return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(href)}</a>${trailing}`;
+            });
+        }
+
+        async function refreshGmailStatus() {
+            const alertEl = document.getElementById('gmailAuthAlert');
+            const messageEl = document.getElementById('gmailAuthMessage');
+            const linkEl = document.getElementById('gmailAuthLink');
+            if (!alertEl || !messageEl || !linkEl) return;
+
+            linkEl.href = GMAIL_AUTH_URL;
+
+            try {
+                const response = await adminAPIService.getGmailStatus();
+                if (!response.success) {
+                    throw new Error(getApiErrorMessage(response, 'Unable to check Gmail authorization.'));
+                }
+
+                const status = response.data || {};
+                if (status.authorized) {
+                    alertEl.classList.add('d-none');
+                    return;
+                }
+
+                alertEl.classList.remove('d-none');
+
+                let message = status.authorizationError || '';
+                if (!message && !status.tokenFileExists) {
+                    message = `No Gmail authorization token is saved on the server. Click "Authorize Gmail" and sign in as ${status.configuredSender || 'the company Gmail account'}.`;
+                }
+                if (!message) {
+                    message = 'Gmail authorization is required before invoices can be emailed.';
+                }
+
+                messageEl.innerHTML = formatInvoiceEmailError(message);
+            } catch (error) {
+                alertEl.classList.remove('d-none');
+                messageEl.innerHTML = formatInvoiceEmailError(
+                    'Could not check Gmail authorization. Open the authorization page to reconnect the mailbox.'
+                );
+                console.error('Error checking Gmail status:', error);
+            }
+        }
+
+        function handleGmailOAuthResult() {
+            const params = new URLSearchParams(window.location.search);
+            const result = params.get('gmailOAuth');
+            if (!result) return;
+
+            if (result === 'success') {
+                showToast('Gmail authorized. Invoice emails can now be sent.', 'success');
+            } else {
+                showToast(`Gmail authorization failed: ${params.get('reason') || 'unknown error'}`, 'danger');
+            }
+
+            ['gmailOAuth', 'reason', 'authorized', 'hasRefreshToken'].forEach((key) => params.delete(key));
+            const query = params.toString();
+            const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+            window.history.replaceState({}, '', cleanUrl);
         }
 
         async function loadOrders() {
@@ -556,7 +647,7 @@
                         </td>
                         <td class="invoice-email-cell">
                             ${invoiceEmailBadge(order.invoiceEmailStatus)}
-                            ${order.invoiceEmailError ? `<div class="small text-danger mt-1">${escapeHtml(order.invoiceEmailError)}</div>` : ''}
+                            ${order.invoiceEmailError ? `<div class="small text-danger mt-1">${formatInvoiceEmailError(order.invoiceEmailError)}</div>` : ''}
                         </td>
                         <td class="date-cell">${formatDateCell(order.createdAt)}</td>
                         <td class="actions-cell">
@@ -567,6 +658,9 @@
                                 <a href="${adminAPIService.getInvoiceUrl(order)}" class="btn btn-outline-success" target="_blank" rel="noopener" title="Download Invoice">
                                     <i class="fas fa-file-pdf"></i>
                                 </a>
+                                <button class="btn btn-outline-info send-invoice-btn" data-order-id="${order._id}" title="Send Invoice Email">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
                                 <button class="btn btn-outline-danger delete-order-btn" data-order-id="${order._id}" title="Delete Order">
                                     <i class="fas fa-trash"></i>
                                 </button>
@@ -660,6 +754,9 @@
                     <a href="${adminAPIService.getInvoiceUrl(order)}" class="btn btn-success" target="_blank" rel="noopener">
                         <i class="fas fa-file-pdf me-2"></i>Open Invoice PDF
                     </a>
+                    <button class="btn btn-outline-info send-invoice-btn" data-order-id="${order._id}">
+                        <i class="fas fa-paper-plane me-2"></i>Send Invoice Email
+                    </button>
                 </div>
             `;
 
@@ -670,7 +767,14 @@
         }
 
         function updateOrderInMemory(orderId, updatedOrder = {}) {
-            const fields = ['status', 'paymentStatus', 'trackingNumber'];
+            const fields = [
+                'status',
+                'paymentStatus',
+                'trackingNumber',
+                'invoiceEmailStatus',
+                'invoiceEmailError',
+                'invoiceEmailSentAt',
+            ];
             const applyTo = (target) => {
                 if (!target) return;
                 fields.forEach((field) => {
@@ -736,6 +840,53 @@
                 inFlightSaves.delete(orderId);
                 if (saveButton) {
                     saveButton.disabled = false;
+                }
+            }
+        }
+
+        async function sendInvoice(orderId, triggerButton = null) {
+            if (!orderId || sendingInvoices.has(orderId)) return;
+
+            const order = allOrders.find((item) => item._id === orderId);
+            if (!order) {
+                showToast('Order not found.', 'danger');
+                return;
+            }
+
+            const shouldSend = window.confirm(`Send invoice ${order.invoiceNumber || orderId} to ${order.customerEmail}?`);
+            if (!shouldSend) return;
+
+            sendingInvoices.add(orderId);
+            const originalHtml = triggerButton ? triggerButton.innerHTML : '';
+            if (triggerButton) {
+                triggerButton.disabled = true;
+                triggerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                const response = await adminAPIService.sendInvoice(order);
+                if (!response.success) {
+                    throw new Error(getApiErrorMessage(response, 'The invoice email could not be sent.'));
+                }
+
+                if (response.data?.order) {
+                    updateOrderInMemory(orderId, response.data.order);
+                }
+
+                showToast(response.message || `Invoice emailed to ${order.customerEmail}.`);
+                await loadOrders();
+                await refreshGmailStatus();
+            } catch (error) {
+                console.error('Error sending invoice:', error);
+                const message = error.message || 'The invoice email could not be sent.';
+                showToast(formatInvoiceEmailError(message), 'danger', true);
+                await loadOrders();
+                await refreshGmailStatus();
+            } finally {
+                sendingInvoices.delete(orderId);
+                if (triggerButton) {
+                    triggerButton.disabled = false;
+                    triggerButton.innerHTML = originalHtml;
                 }
             }
         }
@@ -819,9 +970,22 @@
                     return;
                 }
 
+                const sendButton = event.target.closest('.send-invoice-btn');
+                if (sendButton) {
+                    await sendInvoice(sendButton.dataset.orderId, sendButton);
+                    return;
+                }
+
                 const deleteButton = event.target.closest('.delete-order-btn');
                 if (deleteButton) {
                     await deleteOrder(deleteButton.dataset.orderId, deleteButton);
+                }
+            });
+
+            document.getElementById('orderDetailsBody').addEventListener('click', async (event) => {
+                const sendButton = event.target.closest('.send-invoice-btn');
+                if (sendButton) {
+                    await sendInvoice(sendButton.dataset.orderId, sendButton);
                 }
             });
 
@@ -845,6 +1009,8 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             bindEvents();
+            handleGmailOAuthResult();
+            refreshGmailStatus();
             loadOrders();
         });
     </script>

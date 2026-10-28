@@ -14,6 +14,9 @@ const { isEmailConfigured, sendInvoiceEmail } = require('../services/emailServic
 
 const orderController = {};
 
+const INVOICE_RESEND_COOLDOWN_MS = 30 * 1000;
+const invoiceSendAttempts = new Map();
+
 const ORDER_STATUSES = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'];
 const PAYMENT_STATUSES = ['Unpaid', 'Paid', 'Partially Paid', 'Refunded'];
 const SHIPPING_METHODS = ['Standard', 'Express', 'Pickup'];
@@ -204,7 +207,7 @@ async function attachInvoiceToOrder(order) {
 async function trySendInvoiceEmail(order, invoiceBuffer, invoiceUrl) {
   if (!isEmailConfigured()) {
     order.invoiceEmailStatus = 'Failed';
-    order.invoiceEmailError = 'SMTP is not configured on the server.';
+    order.invoiceEmailError = 'Email sending is not configured on the server.';
     await order.save();
     return { sent: false, error: order.invoiceEmailError };
   }
@@ -515,6 +518,69 @@ orderController.getOrderStats = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Resend an order invoice email (admin)
+orderController.resendInvoice = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found.',
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order || !order.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found or has been removed.',
+      });
+    }
+
+    if (order.invoiceAccessToken && !secureCompare(order.invoiceAccessToken, req.query.token)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This order does not allow invoice email sending with the supplied link.',
+      });
+    }
+
+    const orderKey = String(order._id);
+    const lastAttempt = invoiceSendAttempts.get(orderKey) || 0;
+    const waitMs = INVOICE_RESEND_COOLDOWN_MS - (Date.now() - lastAttempt);
+    if (lastAttempt && waitMs > 0) {
+      return res.status(429).json({
+        success: false,
+        message: `Please wait ${Math.ceil(waitMs / 1000)} second(s) before sending this invoice again.`,
+        retryAfter: Math.ceil(waitMs / 1000),
+      });
+    }
+
+    invoiceSendAttempts.set(orderKey, Date.now());
+
+    const invoice = await attachInvoiceToOrder(order);
+    const invoiceUrl = buildAbsoluteInvoiceUrl(req, order);
+    const result = await trySendInvoiceEmail(order, invoice.pdfBuffer, invoiceUrl);
+
+    if (!result.sent) {
+      return res.status(502).json({
+        success: false,
+        message: result.error || 'The invoice email could not be sent.',
+        data: { order },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Invoice emailed to ${order.customerEmail}.`,
+      data: {
+        order,
+        invoiceUrl,
+      },
     });
   } catch (error) {
     next(error);

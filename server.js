@@ -19,9 +19,22 @@ const ADMIN_HOSTNAMES = [
 app.use(cors());
 
 function isAdminHost(req) {
-    const host = (req.get('x-forwarded-host') || req.get('host') || req.hostname || '').toLowerCase();
+    const host = (req.get('x-forwarded-host') || req.get('host') || req.hostname || '')
+        .toLowerCase()
+        .split(':')[0];
     return ADMIN_HOSTNAMES.some((h) => host === h || host.endsWith('.' + h));
 }
+
+// On the admin subdomain, serve the admin portal from the root so paths like
+// /pages/orders.html and /assets/... work (including OAuth redirects).
+const adminPortalStatic = express.static(path.join(__dirname, 'admin'));
+app.use((req, res, next) => {
+    if (!isAdminHost(req)) {
+        return next();
+    }
+
+    return adminPortalStatic(req, res, next);
+});
 
 // Always serve client images and assets (needed by both sites)
 app.use('/images', express.static(path.join(__dirname, 'client', 'images')));

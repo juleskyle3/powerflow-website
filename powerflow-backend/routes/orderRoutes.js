@@ -14,6 +14,14 @@ router.post('/', orderController.createOrder);
 // @access Public (temporarily for testing)
 router.get('/', orderController.getAllOrders);
 
+// @route  POST /api/orders/:id/send-invoice
+// @desc   Resend the order invoice email
+// @access Order-specific token (legacy orders without a token remain allowed)
+router.post('/:id/send-invoice', [
+  param('id').isMongoId().withMessage('Invalid order ID'),
+  authMiddleware.rateLimit,
+], orderController.resendInvoice);
+
 // @route  GET /api/orders/:id/invoice
 // @desc   Download invoice PDF
 // @access Public

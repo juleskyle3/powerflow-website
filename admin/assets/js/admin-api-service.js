@@ -125,6 +125,65 @@ class AdminAPIService {
     return `${ADMIN_API_BASE_URL}/orders/${encodeURIComponent(order._id)}/invoice${token}`;
   }
 
+  getApiOrigin() {
+    return ADMIN_API_BASE_URL.replace(/\/api\/?$/, '');
+  }
+
+  getGmailAuthUrl() {
+    return `${this.getApiOrigin()}/auth/google`;
+  }
+
+  async getGmailStatus() {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/auth/google/status`, {
+      cache: 'no-store',
+    });
+    return this.readJsonResponse(response);
+  }
+
+  async sendInvoice(order) {
+    if (!order || !order._id) {
+      return { success: false, message: 'Order is missing an ID.' };
+    }
+
+    const token = order.invoiceAccessToken
+      ? `?token=${encodeURIComponent(order.invoiceAccessToken)}`
+      : '';
+
+    const response = await fetch(
+      `${ADMIN_API_BASE_URL}/orders/${encodeURIComponent(order._id)}/send-invoice${token}`,
+      { method: 'POST' }
+    );
+
+    return this.readJsonResponse(response);
+  }
+
+  async readJsonResponse(response) {
+    const text = await response.text();
+
+    let payload = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch (_) {
+      payload = null;
+    }
+
+    if (payload && typeof payload === 'object') {
+      if (!response.ok && payload.success === undefined) {
+        payload.success = false;
+      }
+      return payload;
+    }
+
+    return {
+      success: false,
+      message: response.status === 404
+        ? 'Invoice sending is not available on the server yet. Deploy the latest backend changes and try again.'
+        : response.ok
+          ? 'The server returned an unexpected response.'
+          : `The server returned HTTP ${response.status}. Please try again.`,
+    };
+  }
+
   async getOrderById(id) {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`);
