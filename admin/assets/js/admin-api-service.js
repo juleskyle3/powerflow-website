@@ -3,10 +3,24 @@ const ADMIN_API_BASE_URL = (window.location.hostname === 'localhost' || window.l
   : 'https://api.powerflowservicesltd.com/api';
 
 class AdminAPIService {
+  getAuthHeaders(extraHeaders = {}) {
+    const token = localStorage.getItem('adminToken');
+    const headers = { ...extraHeaders };
+
+    // Older builds stored a fake "demo-token-..." value. Never send it.
+    if (token && !String(token).startsWith('demo-token-')) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
   async getAllProducts(params = {}) {
     try {
       const query = new URLSearchParams(params).toString();
-      const response = await fetch(`${ADMIN_API_BASE_URL}/products?${query}`);
+      const response = await fetch(`${ADMIN_API_BASE_URL}/products?${query}`, {
+        headers: this.getAuthHeaders(),
+      });
       return await response.json();
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -16,7 +30,9 @@ class AdminAPIService {
 
   async getProductById(id) {
     try {
-      const response = await fetch(`${ADMIN_API_BASE_URL}/products/${id}`);
+      const response = await fetch(`${ADMIN_API_BASE_URL}/products/${id}`, {
+        headers: this.getAuthHeaders(),
+      });
       return await response.json();
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -28,7 +44,7 @@ class AdminAPIService {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/products`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(productData)
       });
       return await response.json();
@@ -42,6 +58,7 @@ class AdminAPIService {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/products/upload-images`, {
         method: 'POST',
+        headers: this.getAuthHeaders(),
         body: formData,
       });
       return await response.json();
@@ -55,7 +72,7 @@ class AdminAPIService {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/products/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(productData)
       });
       return await response.json();
@@ -68,7 +85,8 @@ class AdminAPIService {
   async deleteProduct(id) {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/products/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
       });
       return await response.json();
     } catch (error) {
@@ -107,7 +125,9 @@ class AdminAPIService {
   async getAllOrders(params = {}) {
     try {
       const query = new URLSearchParams(params).toString();
-      const response = await fetch(`${ADMIN_API_BASE_URL}/orders?${query}`);
+      const response = await fetch(`${ADMIN_API_BASE_URL}/orders?${query}`, {
+        headers: this.getAuthHeaders(),
+      });
       return await response.json();
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -136,6 +156,7 @@ class AdminAPIService {
   async getGmailStatus() {
     const response = await fetch(`${ADMIN_API_BASE_URL}/auth/google/status`, {
       cache: 'no-store',
+      headers: this.getAuthHeaders(),
     });
     return this.readJsonResponse(response);
   }
@@ -151,7 +172,10 @@ class AdminAPIService {
 
     const response = await fetch(
       `${ADMIN_API_BASE_URL}/orders/${encodeURIComponent(order._id)}/send-invoice${token}`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+      }
     );
 
     return this.readJsonResponse(response);
@@ -186,7 +210,9 @@ class AdminAPIService {
 
   async getOrderById(id) {
     try {
-      const response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`);
+      const response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`, {
+        headers: this.getAuthHeaders(),
+      });
       return await response.json();
     } catch (error) {
       console.error('Error fetching order:', error);
@@ -198,7 +224,7 @@ class AdminAPIService {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       });
       return await response.json();
@@ -212,12 +238,14 @@ class AdminAPIService {
     try {
       let response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`, {
         method: 'DELETE',
+        headers: this.getAuthHeaders(),
       });
 
-      // Fallback for environments where DELETE is restricted/auth-protected.
-      if (response.status === 401 || response.status === 405) {
+      // Fallback for environments where DELETE is restricted.
+      if (response.status === 405) {
         response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}/delete`, {
           method: 'POST',
+          headers: this.getAuthHeaders(),
         });
       }
 
@@ -230,7 +258,9 @@ class AdminAPIService {
 
   async getWebsiteContent() {
     try {
-      const response = await fetch(`${ADMIN_API_BASE_URL}/content`);
+      const response = await fetch(`${ADMIN_API_BASE_URL}/content`, {
+        headers: this.getAuthHeaders(),
+      });
       return await response.json();
     } catch (error) {
       console.error('Error fetching website content:', error);
@@ -242,7 +272,7 @@ class AdminAPIService {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/content/${section}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       });
       return await response.json();

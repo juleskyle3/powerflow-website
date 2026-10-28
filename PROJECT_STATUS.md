@@ -56,7 +56,7 @@ npm start
 ## 🔐 Admin Credentials
 
 - **Email**: admin@powerflowservices.com
-- **Password**: admin123
+- **Password**: set when creating the admin account (`powerflow-backend/scripts/createAdmin.js`); never commit it
 
 ## 📁 Project Structure
 

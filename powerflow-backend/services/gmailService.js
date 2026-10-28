@@ -58,6 +58,16 @@ function getGmailReauthorizationMessage() {
   return `Gmail authorization has expired or was revoked. Open ${getGmailAuthEntryUrl()} to reconnect the company mailbox, then try sending the invoice again.`;
 }
 
+function isReauthorizationError(error) {
+  return /invalid_grant|token has been expired or revoked|expired or (?:was )?revoked|unauthorized_client/i.test(
+    String(error?.message || error || '')
+  );
+}
+
+function hasOAuthCredentials(credentials) {
+  return Boolean(credentials && (credentials.refresh_token || credentials.access_token));
+}
+
 function resolveCredentialsPath() {
   const configuredPath = process.env.GOOGLE_CREDENTIALS_PATH || 'credentials.json';
   return path.isAbsolute(configuredPath)
@@ -151,7 +161,14 @@ function getScopes() {
   return Array.from(scopes);
 }
 
-async function initializeOAuthClient() {
+async function initializeOAuthClient({ forceReload = false } = {}) {
+  if (forceReload) {
+    // Another process (or a fresh OAuth callback) may have written a newer
+    // token to disk. Drop the in-memory client so we can pick it up.
+    oauthClientPromise = null;
+    cachedTokens = null;
+  }
+
   if (!oauthClientPromise) {
     oauthClientPromise = (async () => {
       ensureGoogleApisInstalled();
@@ -171,11 +188,21 @@ async function initializeOAuthClient() {
           ...newTokens,
         };
 
-        await saveGoogleTokens(cachedTokens);
+        try {
+          await saveGoogleTokens(cachedTokens);
+        } catch (error) {
+          // A failed disk write must not crash the server; the refreshed
+          // access token still works for this process.
+          console.error('Failed to save refreshed Google OAuth token:', error.message);
+        }
       });
 
       return client;
-    })();
+    })().catch((error) => {
+      // Allow a later request to retry after a transient startup failure.
+      oauthClientPromise = null;
+      throw error;
+    });
   }
 
   return oauthClientPromise;
@@ -294,8 +321,7 @@ async function getAuthStatus() {
     let authorized = Boolean(tokens && (tokens.refresh_token || tokens.access_token));
 
     if (authorized) {
-      try {
-        const client = await initializeOAuthClient();
+      const verifyAuthorization = async (client) => {
         // Verify the stored token can still be refreshed. Checking only that a
         // token file exists reports expired/revoked grants as authorized.
         const accessToken = await client.getAccessToken();
@@ -306,7 +332,7 @@ async function getAuthStatus() {
         try {
           const gmail = google.gmail({ version: 'v1', auth: client });
           const profile = await gmail.users.getProfile({ userId: 'me' });
-          oauthMailbox = profile?.data?.emailAddress || tokenPayload?.email || null;
+          return profile?.data?.emailAddress || tokenPayload?.email || null;
         } catch (profileError) {
           // A send-only grant cannot read the mailbox profile, but it can still
           // send invoices. Only treat other profile errors as authorization
@@ -314,12 +340,30 @@ async function getAuthStatus() {
           if (!/insufficient authentication scopes/i.test(String(profileError?.message || ''))) {
             throw profileError;
           }
-          oauthMailbox = tokenPayload?.email || null;
+          return tokenPayload?.email || null;
+        }
+      };
+
+      try {
+        try {
+          oauthMailbox = await verifyAuthorization(await initializeOAuthClient());
+        } catch (error) {
+          if (!isReauthorizationError(error)) {
+            throw error;
+          }
+
+          // Re-authorization may have happened in another process/worker.
+          // Reload the token from disk before reporting a revoked grant.
+          const freshClient = await initializeOAuthClient({ forceReload: true });
+          if (!hasOAuthCredentials(freshClient.credentials)) {
+            throw error;
+          }
+          oauthMailbox = await verifyAuthorization(freshClient);
         }
       } catch (error) {
         authorized = false;
         authorizationError = String(error?.message || error || 'Google authorization check failed.');
-        if (/invalid_grant|expired or revoked|unauthorized_client/i.test(authorizationError)) {
+        if (isReauthorizationError(authorizationError)) {
           authorizationError = 'Gmail authorization has expired or was revoked. Reconnect the company mailbox.';
         }
       }
@@ -351,22 +395,29 @@ async function getAuthStatus() {
   }
 }
 
+function buildFriendlyGmailError(error) {
+  const msg = String(error?.message || '');
+
+  if (isReauthorizationError(error)) {
+    return new Error(getGmailReauthorizationMessage());
+  }
+
+  if (/insufficient authentication scopes/i.test(msg)) {
+    const scopesHint = getScopes().join(' ');
+    return new Error(
+      'Gmail send failed due to missing OAuth scopes. ' +
+      `Update GOOGLE_OAUTH_SCOPES (currently configured as: ${scopesHint}), then reset OAuth (POST /api/auth/google/reset) and re-authorize via /auth/google. ` +
+      `Original error: ${msg}`
+    );
+  }
+
+  return error;
+}
+
 async function sendEmail(to, subject, message, options = {}) {
   if (!to || !subject || !message) {
     throw new Error('sendEmail requires to, subject, and message.');
   }
-
-  const client = await initializeOAuthClient();
-
-  const tokens = client.credentials || {};
-  if (!tokens.refresh_token && !tokens.access_token) {
-    throw new Error(`Gmail OAuth is not authorized yet. Open ${getGmailAuthEntryUrl()} first.`);
-  }
-
-  const gmail = google.gmail({
-    version: 'v1',
-    auth: client,
-  });
 
   const configuredSender = extractEmailAddress(
     options.from
@@ -376,52 +427,12 @@ async function sendEmail(to, subject, message, options = {}) {
     || DEFAULT_SENDER_EMAIL
   );
 
-  const fromEmail = configuredSender;
-
-  if (!fromEmail) {
+  if (!configuredSender) {
     throw new Error('Missing sender email. Set GMAIL_SENDER_EMAIL or SMTP_FROM or SMTP_USER in .env.');
   }
 
-  const strictSenderMatch = String(process.env.GMAIL_STRICT_SENDER || 'true').toLowerCase() !== 'false';
-  if (strictSenderMatch) {
-    let oauthMailbox = '';
-
-    try {
-      const profile = await gmail.users.getProfile({ userId: 'me' });
-      oauthMailbox = extractEmailAddress(profile?.data?.emailAddress);
-    } catch (error) {
-      // Some OAuth setups only grant gmail.send; users.getProfile can fail with:
-      // "Request had insufficient authentication scopes."
-      // In that case, skip strict verification so sending can still proceed.
-      const msg = String(error?.message || '');
-      if (/invalid_grant|token has been expired or revoked|unauthorized_client/i.test(msg)) {
-        throw new Error(getGmailReauthorizationMessage());
-      }
-      if (!/insufficient authentication scopes/i.test(msg)) {
-        throw error;
-      }
-
-      // Try a secondary mailbox lookup using the Google OAuth2 userinfo API if available.
-      // This requires userinfo.email scope.
-      try {
-        const oauth2 = google.oauth2({ version: 'v2', auth: client });
-        const me = await oauth2.userinfo.get();
-        oauthMailbox = extractEmailAddress(me?.data?.email);
-      } catch (_) {
-        oauthMailbox = '';
-      }
-    }
-
-    if (oauthMailbox && configuredSender && oauthMailbox.toLowerCase() !== configuredSender.toLowerCase()) {
-      throw new Error(
-        `Gmail OAuth account mismatch. Authorized mailbox is "${oauthMailbox}" but configured sender is "${configuredSender}". ` +
-        'Reset OAuth via POST /api/auth/google/reset, then re-authorize /auth/google with the company mailbox.'
-      );
-    }
-  }
-
   const raw = buildRawMimeMessage({
-    from: fromEmail,
+    from: configuredSender,
     to,
     subject,
     text: message,
@@ -429,29 +440,90 @@ async function sendEmail(to, subject, message, options = {}) {
     attachments: options.attachments || [],
   });
 
-  let response;
-  try {
-    response = await gmail.users.messages.send({
+  const attemptSend = async (client) => {
+    if (!hasOAuthCredentials(client.credentials)) {
+      throw new Error(`Gmail OAuth is not authorized yet. Open ${getGmailAuthEntryUrl()} first.`);
+    }
+
+    const gmail = google.gmail({
+      version: 'v1',
+      auth: client,
+    });
+
+    const strictSenderMatch = String(process.env.GMAIL_STRICT_SENDER || 'true').toLowerCase() !== 'false';
+    if (strictSenderMatch) {
+      let oauthMailbox = '';
+
+      try {
+        const profile = await gmail.users.getProfile({ userId: 'me' });
+        oauthMailbox = extractEmailAddress(profile?.data?.emailAddress);
+      } catch (error) {
+        // Some OAuth setups only grant gmail.send; users.getProfile can fail with:
+        // "Request had insufficient authentication scopes."
+        // In that case, skip strict verification so sending can still proceed.
+        const msg = String(error?.message || '');
+        if (isReauthorizationError(msg)) {
+          throw error;
+        }
+        if (!/insufficient authentication scopes/i.test(msg)) {
+          throw error;
+        }
+
+        // Try a secondary mailbox lookup using the Google OAuth2 userinfo API if available.
+        // This requires userinfo.email scope.
+        try {
+          const oauth2 = google.oauth2({ version: 'v2', auth: client });
+          const me = await oauth2.userinfo.get();
+          oauthMailbox = extractEmailAddress(me?.data?.email);
+        } catch (_) {
+          oauthMailbox = '';
+        }
+      }
+
+      if (oauthMailbox && configuredSender && oauthMailbox.toLowerCase() !== configuredSender.toLowerCase()) {
+        throw new Error(
+          `Gmail OAuth account mismatch. Authorized mailbox is "${oauthMailbox}" but configured sender is "${configuredSender}". ` +
+          'Reset OAuth via POST /api/auth/google/reset, then re-authorize /auth/google with the company mailbox.'
+        );
+      }
+    }
+
+    return gmail.users.messages.send({
       userId: 'me',
       requestBody: { raw },
     });
-  } catch (error) {
-    const msg = String(error?.message || '');
-    if (/invalid_grant|token has been expired or revoked|unauthorized_client/i.test(msg)) {
-      throw new Error(getGmailReauthorizationMessage());
-    }
-    if (/insufficient authentication scopes/i.test(msg)) {
-      const scopesHint = getScopes().join(' ');
-      throw new Error(
-        'Gmail send failed due to missing OAuth scopes. ' +
-        `Update GOOGLE_OAUTH_SCOPES (currently configured as: ${scopesHint}), then reset OAuth (POST /api/auth/google/reset) and re-authorize via /auth/google. ` +
-        `Original error: ${msg}`
-      );
-    }
-    throw error;
-  }
+  };
 
-  return response.data;
+  const client = await initializeOAuthClient();
+
+  try {
+    const response = await attemptSend(client);
+    return response.data;
+  } catch (error) {
+    if (!isReauthorizationError(error)) {
+      throw buildFriendlyGmailError(error);
+    }
+
+    // The grant may have been renewed by another process/worker. Reload the
+    // token from disk and retry once before asking the admin to reconnect.
+    let freshClient = null;
+    try {
+      freshClient = await initializeOAuthClient({ forceReload: true });
+    } catch (_) {
+      freshClient = null;
+    }
+
+    if (freshClient && hasOAuthCredentials(freshClient.credentials)) {
+      try {
+        const response = await attemptSend(freshClient);
+        return response.data;
+      } catch (retryError) {
+        throw buildFriendlyGmailError(retryError);
+      }
+    }
+
+    throw buildFriendlyGmailError(error);
+  }
 }
 
 async function isGmailReadyForSend() {

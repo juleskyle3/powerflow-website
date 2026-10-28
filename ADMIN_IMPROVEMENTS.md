@@ -125,7 +125,7 @@
 
 3. **Access Admin:**
    - URL: http://localhost:3000/admin
-   - Login: admin@powerflowservices.com / admin123
+   - Login with an admin account created via `powerflow-backend/scripts/createAdmin.js`
 
 4. **Verify:**
    - Dashboard shows real product counts

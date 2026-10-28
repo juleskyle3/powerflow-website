@@ -173,7 +173,7 @@ localStorage.setItem('powerflow_cart', JSON.stringify(cart));
 ### 3. Test Admin Orders:
 ```
 1. Go to http://localhost:3000/admin
-2. Login: admin@powerflowservices.com / admin123
+2. Login with an admin account created via `powerflow-backend/scripts/createAdmin.js`
 3. Click "Orders" in sidebar
 4. See all orders from database
 5. View statistics

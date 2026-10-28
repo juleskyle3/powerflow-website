@@ -74,7 +74,7 @@ Frontend will run on: http://localhost:3000
 1. Visit http://localhost:3000/products
 2. Products should load from database
 3. Visit http://localhost:3000/admin
-4. Login: admin@powerflowservices.com / admin123
+4. Login with an admin account created via `powerflow-backend/scripts/createAdmin.js`
 5. Manage products (add, edit, delete)
 6. Changes reflect immediately on client site
 

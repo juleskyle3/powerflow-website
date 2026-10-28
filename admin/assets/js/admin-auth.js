@@ -1,4 +1,8 @@
 // Admin Authentication
+const ADMIN_AUTH_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:5050/api'
+    : 'https://api.powerflowservicesltd.com/api';
+
 class AdminAuth {
     constructor() {
         this.init();
@@ -31,56 +35,46 @@ class AdminAuth {
 
     async handleLogin(e) {
         e.preventDefault();
-        
-        const email = document.getElementById('email').value;
+
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const submitBtn = e.target.querySelector('button[type="submit"]');
-        
+
         // Show loading state
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
         submitBtn.disabled = true;
 
         try {
-            // Simulate API call (replace with actual backend call)
-            await this.simulateLogin(email, password);
-            
-            // Store auth token (in real app, use secure storage)
-            localStorage.setItem('adminToken', 'demo-token-' + Date.now());
-            localStorage.setItem('adminUser', JSON.stringify({
-                email: email,
-                name: 'Admin User',
-                role: 'Administrator'
-            }));
+            const response = await fetch(`${ADMIN_AUTH_API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
 
-            // Redirect to dashboard
+            const payload = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                throw new Error(
+                    payload?.error?.message
+                    || payload?.message
+                    || 'Invalid email or password.'
+                );
+            }
+
+            if (payload?.data?.user?.role !== 'admin') {
+                throw new Error('This account does not have admin access.');
+            }
+
+            localStorage.setItem('adminToken', payload.data.token);
+            localStorage.setItem('adminUser', JSON.stringify(payload.data.user));
+
             window.location.href = 'dashboard.html';
-            
         } catch (error) {
-            this.showError('Invalid credentials. Please try again.');
+            this.showError(error.message || 'Invalid credentials. Please try again.');
         } finally {
             // Reset button
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
-        }
-    }
-
-    async simulateLogin(email, password) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Demo credentials (replace with actual authentication)
-        const validCredentials = [
-            { email: 'admin@powerflowservices.com', password: 'admin123' },
-            { email: 'manager@powerflowservices.com', password: 'manager123' }
-        ];
-
-        const isValid = validCredentials.some(cred => 
-            cred.email === email && cred.password === password
-        );
-
-        if (!isValid) {
-            throw new Error('Invalid credentials');
         }
     }
 
@@ -98,25 +92,63 @@ class AdminAuth {
         }
     }
 
-    checkAuth() {
+    async checkAuth() {
         const token = localStorage.getItem('adminToken');
-        const currentPage = window.location.pathname;
+        const hasRealToken = Boolean(token && !String(token).startsWith('demo-token-'));
+        const currentPath = window.location.pathname;
+        const onLoginPage = currentPath === '/'
+            || currentPath === '/admin'
+            || currentPath.endsWith('/admin/')
+            || currentPath.endsWith('/index.html');
 
         // If on login page and already authenticated, redirect to dashboard
-        if (currentPage.includes('index.html') || currentPage.endsWith('/admin/')) {
-            if (token) {
+        if (onLoginPage) {
+            if (hasRealToken) {
                 window.location.href = 'dashboard.html';
             }
+            return;
         }
-        // If on protected page and not authenticated, redirect to login
-        else if (!token && !currentPage.includes('index.html')) {
+
+        // If on a protected page without a real token, redirect to login
+        if (!hasRealToken) {
+            this.clearSession();
+            window.location.href = 'index.html';
+            return;
+        }
+
+        // Verify the token with the backend; expired/invalid sessions must not
+        // stay logged in just because localStorage has a value.
+        try {
+            const response = await fetch(`${ADMIN_AUTH_API_BASE}/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!response.ok) {
+                throw new Error('Session expired');
+            }
+        } catch (_) {
+            this.clearSession();
             window.location.href = 'index.html';
         }
     }
 
-    logout() {
+    clearSession() {
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminUser');
+    }
+
+    logout() {
+        const token = localStorage.getItem('adminToken');
+
+        if (token && !String(token).startsWith('demo-token-')) {
+            fetch(`${ADMIN_AUTH_API_BASE}/auth/logout`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                keepalive: true,
+            }).catch(() => {});
+        }
+
+        this.clearSession();
         window.location.href = 'index.html';
     }
 
@@ -146,7 +178,8 @@ class AdminAuth {
     }
 
     isAuthenticated() {
-        return !!localStorage.getItem('adminToken');
+        const token = localStorage.getItem('adminToken');
+        return Boolean(token && !String(token).startsWith('demo-token-'));
     }
 }
 

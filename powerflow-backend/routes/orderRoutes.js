@@ -11,8 +11,11 @@ router.post('/', orderController.createOrder);
 
 // @route  GET /api/orders
 // @desc   Get all orders
-// @access Public (temporarily for testing)
-router.get('/', orderController.getAllOrders);
+// @access Private/Admin (contains customer PII and invoice access tokens)
+router.get('/', [
+  authMiddleware.protect,
+  authMiddleware.restrictToAdmin,
+], orderController.getAllOrders);
 
 // @route  POST /api/orders/:id/send-invoice
 // @desc   Resend the order invoice email
@@ -45,20 +48,27 @@ router.get('/:id', [
 
 // @route  PUT /api/orders/:id
 // @desc   Update order status
-// @access Public (temporarily for testing)
-router.put('/:id', orderController.updateOrderStatus);
+// @access Private/Admin
+router.put('/:id', [
+  authMiddleware.protect,
+  authMiddleware.restrictToAdmin,
+], orderController.updateOrderStatus);
 
 // @route  DELETE /api/orders/:id
 // @desc   Delete order
-// @access Public (temporarily for testing)
+// @access Private/Admin
 router.delete('/:id', [
+  authMiddleware.protect,
+  authMiddleware.restrictToAdmin,
   param('id').isMongoId().withMessage('Invalid order ID'),
 ], orderController.deleteOrder);
 
 // @route  POST /api/orders/:id/delete
 // @desc   Delete order (fallback endpoint for clients/environments that block DELETE)
-// @access Public (temporarily for testing)
+// @access Private/Admin
 router.post('/:id/delete', [
+  authMiddleware.protect,
+  authMiddleware.restrictToAdmin,
   param('id').isMongoId().withMessage('Invalid order ID'),
 ], orderController.deleteOrder);
 

@@ -9,8 +9,9 @@ errorMiddleware.notFound = (req, res, next) => {
 
 // Global error handler
 errorMiddleware.errorHandler = (error, req, res, next) => {
-  // Set status code
-  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  // Set status code. Custom AppErrors carry their own status; otherwise fall
+  // back to the response status (or 500 when nothing set it).
+  let statusCode = error.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
   let message = error.message;
 
   // Handle specific error types
