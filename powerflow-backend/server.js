@@ -39,6 +39,23 @@ function getAllowedOrigins() {
   return Array.from(new Set([...fromMulti, ...fromSingle, ...defaults]));
 }
 
+// Allow testing from phones/tablets on the same private network, e.g.
+// http://192.168.1.68:3000. Public origins must still be allow-listed.
+function isPrivateNetworkOrigin(origin) {
+  try {
+    const { protocol, hostname } = new URL(origin);
+    if (protocol !== 'http:') return false;
+
+    return hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || /^10\./.test(hostname)
+      || /^192\.168\./.test(hostname)
+      || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  } catch (error) {
+    return false;
+  }
+}
+
 const allowedOrigins = getAllowedOrigins();
 
 // Security middleware
@@ -62,7 +79,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin) || isPrivateNetworkOrigin(origin)) {
       return callback(null, true);
     }
 
