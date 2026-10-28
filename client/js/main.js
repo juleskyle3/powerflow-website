@@ -86,18 +86,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add animation classes on scroll
     const sections = document.querySelectorAll('.section-padding, .service-detail, .expertise-section');
-    const sectionObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('section-fade-in', 'visible');
-            }
-        });
-    }, { threshold: 0.1 });
 
-    sections.forEach(section => {
-        section.classList.add('section-fade-in');
-        sectionObserver.observe(section);
-    });
+    // Use a zero threshold: tall sections (for example a product category with
+    // many cards stacked in one column on mobile) can be taller than ten
+    // viewports, which makes a 0.1 intersection ratio impossible to reach and
+    // would leave the section permanently hidden at opacity 0.
+    if ('IntersectionObserver' in window) {
+        const sectionObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('section-fade-in', 'visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0, rootMargin: '0px 0px -50px 0px' });
+
+        sections.forEach(section => {
+            section.classList.add('section-fade-in');
+            sectionObserver.observe(section);
+        });
+    } else {
+        // Reveal content immediately when IntersectionObserver is unavailable.
+        sections.forEach(section => {
+            section.classList.add('section-fade-in', 'visible');
+        });
+    }
 
     // LinkedIn preview modal: intercept clicks on LinkedIn social links
     (function() {
