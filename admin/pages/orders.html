@@ -1012,6 +1012,13 @@
             handleGmailOAuthResult();
             refreshGmailStatus();
             loadOrders();
+
+            // Re-check after the admin returns from the Gmail authorization tab.
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    refreshGmailStatus();
+                }
+            });
         });
     </script>
 </body>
