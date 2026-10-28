@@ -303,9 +303,19 @@ async function getAuthStatus() {
           throw new Error('Google did not return an access token.');
         }
 
-        const gmail = google.gmail({ version: 'v1', auth: client });
-        const profile = await gmail.users.getProfile({ userId: 'me' });
-        oauthMailbox = profile?.data?.emailAddress || tokenPayload?.email || null;
+        try {
+          const gmail = google.gmail({ version: 'v1', auth: client });
+          const profile = await gmail.users.getProfile({ userId: 'me' });
+          oauthMailbox = profile?.data?.emailAddress || tokenPayload?.email || null;
+        } catch (profileError) {
+          // A send-only grant cannot read the mailbox profile, but it can still
+          // send invoices. Only treat other profile errors as authorization
+          // failures.
+          if (!/insufficient authentication scopes/i.test(String(profileError?.message || ''))) {
+            throw profileError;
+          }
+          oauthMailbox = tokenPayload?.email || null;
+        }
       } catch (error) {
         authorized = false;
         authorizationError = String(error?.message || error || 'Google authorization check failed.');
