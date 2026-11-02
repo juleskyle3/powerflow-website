@@ -41,6 +41,13 @@ const productSchema = new mongoose.Schema({
     min: [0, 'Stock cannot be negative'],
     default: 0,
   },
+  // Units temporarily held by customer carts. `stock` remains the physical
+  // stock on hand; customer-facing availability is `stock - reserved`.
+  reserved: {
+    type: Number,
+    min: [0, 'Reserved stock cannot be negative'],
+    default: 0,
+  },
   image: {
     type: String,
     default: '',

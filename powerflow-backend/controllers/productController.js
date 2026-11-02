@@ -4,6 +4,27 @@ const { AppError, ValidationError, NotFoundError } = require('../middleware/erro
 
 const productController = {};
 
+const COMPUTED_PRODUCT_FIELDS = ['reserved', 'availableStock', '_id', '__v', 'createdAt', 'updatedAt'];
+
+function sanitizeProductPayload(body = {}) {
+  const payload = { ...body };
+  COMPUTED_PRODUCT_FIELDS.forEach((field) => {
+    delete payload[field];
+  });
+  return payload;
+}
+
+function withAvailableStock(product) {
+  const plain = product?.toObject ? product.toObject() : { ...product };
+  plain.availableStock = Math.max(
+    0,
+    Math.floor(Number(plain.stock || 0) - Number(plain.reserved || 0))
+  );
+  // `reserved` is an internal counter cache; customers only need availability.
+  delete plain.reserved;
+  return plain;
+}
+
 // Get all products (public)
 productController.getAllProducts = async (req, res, next) => {
   try {
@@ -60,7 +81,7 @@ productController.getAllProducts = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        products,
+        products: products.map(withAvailableStock),
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -86,7 +107,7 @@ productController.getProductById = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        product,
+        product: withAvailableStock(product),
       },
     });
   } catch (error) {
@@ -107,7 +128,10 @@ productController.getProductsByCategory = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        products: result.products.map(withAvailableStock),
+      },
     });
   } catch (error) {
     next(error);
@@ -127,7 +151,10 @@ productController.searchProducts = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        products: result.products.map(withAvailableStock),
+      },
     });
   } catch (error) {
     next(error);
@@ -143,13 +170,13 @@ productController.createProduct = async (req, res, next) => {
       return next(new ValidationError(errors.array()));
     }
 
-    const product = await Product.create(req.body);
+    const product = await Product.create(sanitizeProductPayload(req.body));
 
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
       data: {
-        product,
+        product: withAvailableStock(product),
       },
     });
   } catch (error) {
@@ -168,7 +195,7 @@ productController.updateProduct = async (req, res, next) => {
 
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      sanitizeProductPayload(req.body),
       { new: true, runValidators: true }
     );
 
@@ -180,7 +207,7 @@ productController.updateProduct = async (req, res, next) => {
       success: true,
       message: 'Product updated successfully',
       data: {
-        product,
+        product: withAvailableStock(product),
       },
     });
   } catch (error) {

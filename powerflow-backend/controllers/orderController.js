@@ -12,6 +12,7 @@ const {
 } = require('../services/invoiceService');
 const { isEmailConfigured, sendInvoiceEmail } = require('../services/emailService');
 const { deliverOrderAlert } = require('../services/notificationService');
+const stockService = require('../services/stockService');
 
 const orderController = {};
 
@@ -154,10 +155,6 @@ async function normalizeItems(rawItems) {
       throw new AppError(`Product not found for ID ${item.productId}`, 404);
     }
 
-    if (product.stock < item.quantity) {
-      throw new AppError(`Insufficient stock for ${product.name}. Remaining stock: ${product.stock}`, 409);
-    }
-
     orderItems.push({
       productId: product._id,
       productName: product.name || item.providedName,
@@ -167,32 +164,6 @@ async function normalizeItems(rawItems) {
   });
 
   return orderItems;
-}
-
-async function decrementStock(orderItems) {
-  const decremented = [];
-
-  try {
-    for (const item of orderItems) {
-      // Prevent negative stock under concurrent purchases.
-      // eslint-disable-next-line no-await-in-loop
-      const result = await Product.updateOne(
-        { _id: item.productId, stock: { $gte: item.quantity } },
-        { $inc: { stock: -item.quantity } }
-      );
-
-      if (result.modifiedCount === 0) {
-        throw new AppError(`Unable to reserve stock for ${item.productName}. Please retry.`, 409);
-      }
-
-      decremented.push(item);
-    }
-  } catch (error) {
-    await Promise.all(
-      decremented.map((item) => Product.updateOne({ _id: item.productId }, { $inc: { stock: item.quantity } }))
-    );
-    throw error;
-  }
 }
 
 async function attachInvoiceToOrder(order) {
@@ -242,6 +213,7 @@ async function trySendInvoiceEmail(order, invoiceBuffer, invoiceUrl) {
 orderController.createOrder = async (req, res, next) => {
   try {
     const { customer = {}, items = [], delivery, notes, shippingMethod } = req.body;
+    const cartId = sanitizeText(req.body.cartId) || null;
 
     const customerName = sanitizeText(customer.name);
     const customerEmail = sanitizeText(customer.email).toLowerCase();
@@ -270,26 +242,35 @@ orderController.createOrder = async (req, res, next) => {
       ? sanitizeText(shippingMethod)
       : 'Standard';
 
-    const order = await Order.create({
-      customerName,
-      customerEmail,
-      customerPhone,
-      customerAddress,
-      items: orderItems,
-      subtotal,
-      shippingCost,
-      tax,
-      totalAmount,
-      invoiceNumber,
-      invoiceAccessToken,
-      notes: sanitizeText(notes),
-      shippingMethod: normalizedShippingMethod,
-      status: 'Pending',
-      paymentStatus: 'Unpaid',
-      invoiceEmailStatus: 'Pending',
-    });
+    // Convert the customer's cart holds into a sale before creating the order.
+    // Availability is checked atomically so concurrent carts cannot oversell.
+    const consumedStock = await stockService.consumeCartStock(cartId, orderItems);
 
-    await decrementStock(orderItems);
+    let order;
+    try {
+      order = await Order.create({
+        customerName,
+        customerEmail,
+        customerPhone,
+        customerAddress,
+        items: orderItems,
+        subtotal,
+        shippingCost,
+        tax,
+        totalAmount,
+        invoiceNumber,
+        invoiceAccessToken,
+        notes: sanitizeText(notes),
+        shippingMethod: normalizedShippingMethod,
+        status: 'Pending',
+        paymentStatus: 'Unpaid',
+        invoiceEmailStatus: 'Pending',
+      });
+    } catch (orderError) {
+      // The sale never became an order, so put the units back on the shelf.
+      await stockService.restoreConsumedStock(consumedStock);
+      throw orderError;
+    }
 
     const invoiceUrl = buildAbsoluteInvoiceUrl(req, order);
 

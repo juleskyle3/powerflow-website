@@ -5,6 +5,113 @@ class ProductsLoader {
     this.productsById = new Map();
     this.loading = false;
     this.detailsModal = null;
+    this.modalProductId = null;
+    this.stockPollTimer = null;
+    this.lastStockRefresh = 0;
+    this.bindStockUpdates();
+    this.startStockPolling();
+  }
+
+  getAvailableStock(product) {
+    const raw = product?.availableStock ?? product?.stock ?? 0;
+    return Math.max(0, Math.floor(Number(raw) || 0));
+  }
+
+  getStockBadgeClass(quantity) {
+    if (quantity <= 0) return 'bg-danger';
+    if (quantity <= 5) return 'bg-warning text-dark';
+    return 'bg-success';
+  }
+
+  getStockBadgeLabel(quantity) {
+    return quantity > 0 ? `${quantity} in stock` : 'Out of stock';
+  }
+
+  bindStockUpdates() {
+    document.addEventListener('cart:stock-updated', (event) => {
+      this.applyStockUpdates(event.detail?.items);
+    });
+
+    const refreshIfStale = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - this.lastStockRefresh < 15000) return;
+      this.refreshStock();
+    };
+
+    window.addEventListener('focus', refreshIfStale);
+    document.addEventListener('visibilitychange', refreshIfStale);
+  }
+
+  startStockPolling() {
+    if (this.stockPollTimer) return;
+
+    // Other customers' carts and orders change availability constantly, so
+    // refresh badges periodically without re-rendering the whole grid.
+    this.stockPollTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      this.refreshStock();
+    }, 30000);
+  }
+
+  applyStockUpdates(items) {
+    if (!Array.isArray(items)) return;
+
+    items.forEach((item) => {
+      if (!item || !item.productId) return;
+      this.updateStockDom(item.productId, item.availableStock);
+    });
+  }
+
+  updateStockDom(productId, availableStock) {
+    const id = String(productId);
+    const quantity = Math.max(0, Math.floor(Number(availableStock) || 0));
+    const product = this.productsById.get(id);
+
+    if (product) {
+      product.availableStock = quantity;
+    }
+
+    document.querySelectorAll(`[data-stock-badge="${id}"]`).forEach((badge) => {
+      badge.className = `badge ${this.getStockBadgeClass(quantity)}`;
+      badge.textContent = this.getStockBadgeLabel(quantity);
+    });
+
+    document.querySelectorAll(`.add-to-cart[data-product-id="${id}"]`).forEach((button) => {
+      button.dataset.availableStock = String(quantity);
+      button.disabled = quantity <= 0;
+
+      const label = button.querySelector('[data-stock-button-label]');
+      if (label) {
+        label.textContent = quantity > 0 ? 'Add to Cart' : 'Out of Stock';
+      }
+    });
+
+    if (this.modalProductId === id) {
+      const modalStock = document.querySelector('[data-modal-stock]');
+      if (modalStock) {
+        modalStock.textContent = quantity > 0 ? `${quantity} available` : 'Out of stock';
+      }
+    }
+  }
+
+  async refreshStock() {
+    if (this.loading) return;
+
+    try {
+      const response = await apiService.getAllProducts({ limit: 200, sort: '-createdAt' });
+      if (!response.success) return;
+
+      const products = response.data.products || [];
+      this.products = products;
+      this.productsById = new Map(products.map((product) => [product._id, product]));
+      this.lastStockRefresh = Date.now();
+
+      products.forEach((product) => {
+        this.updateStockDom(product._id, this.getAvailableStock(product));
+      });
+    } catch (error) {
+      console.warn('Could not refresh product stock:', error);
+    }
   }
 
   async loadAllProducts() {
@@ -123,6 +230,7 @@ class ProductsLoader {
 
   createProductCard(product) {
     const primaryImage = this.getPrimaryImage(product);
+    const availableStock = this.getAvailableStock(product);
     const brand = product.brand ? `<span class="product-chip"><i class="fas fa-industry"></i>${this.escapeHtml(product.brand)}</span>` : '';
     const warranty = product.warranty ? `<span class="product-chip"><i class="fas fa-shield-alt"></i>${this.escapeHtml(product.warranty)}</span>` : '';
 
@@ -140,8 +248,8 @@ class ProductsLoader {
             <span class="price">RWF ${Number(product.price || 0).toLocaleString()}</span>
           </div>
           <div class="product-stock">
-            <span class="badge ${product.stock > 0 ? 'bg-success' : 'bg-danger'}">
-              ${product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+            <span class="badge ${this.getStockBadgeClass(availableStock)}" data-stock-badge="${product._id}">
+              ${this.getStockBadgeLabel(availableStock)}
             </span>
           </div>
           <div class="product-actions">
@@ -150,8 +258,9 @@ class ProductsLoader {
                     data-product-name="${this.escapeHtml(product.name)}"
                     data-price="${Number(product.price || 0)}"
                     data-image="${primaryImage}"
-                    ${product.stock === 0 ? 'disabled' : ''}>
-              <i class="fas fa-cart-plus me-1"></i>Add to Cart
+                    data-available-stock="${availableStock}"
+                    ${availableStock === 0 ? 'disabled' : ''}>
+              <i class="fas fa-cart-plus me-1"></i><span data-stock-button-label>${availableStock === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
             </button>
             <button class="btn btn-outline-primary btn-sm view-product"
                     data-product-id="${product._id}">
@@ -208,6 +317,7 @@ class ProductsLoader {
 
   buildProductDetailsTemplate(product) {
     const primaryImage = this.getPrimaryImage(product);
+    const availableStock = this.getAvailableStock(product);
     const tags = this.toList(product.tags);
     const dimensions = product.dimensions || {};
 
@@ -222,7 +332,7 @@ class ProductsLoader {
         ? `<li><span>Dimensions</span><strong>${[dimensions.length || '-', dimensions.width || '-', dimensions.height || '-'].join(' x ')} cm</strong></li>`
         : '',
       `<li><span>Category</span><strong>${this.escapeHtml(product.category || 'General')}</strong></li>`,
-      `<li><span>Stock</span><strong>${product.stock > 0 ? `${product.stock} available` : 'Out of stock'}</strong></li>`,
+      `<li><span>Stock</span><strong data-modal-stock>${availableStock > 0 ? `${availableStock} available` : 'Out of stock'}</strong></li>`,
     ].filter(Boolean).join('');
 
     return `
@@ -265,8 +375,9 @@ class ProductsLoader {
                     data-product-name="${this.escapeHtml(product.name)}"
                     data-price="${Number(product.price || 0)}"
                     data-image="${primaryImage}"
-                    ${product.stock === 0 ? 'disabled' : ''}>
-              <i class="fas fa-cart-plus me-2"></i>${product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                    data-available-stock="${availableStock}"
+                    ${availableStock === 0 ? 'disabled' : ''}>
+              <i class="fas fa-cart-plus me-2"></i><span data-stock-button-label>${availableStock === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
             </button>
             <button class="btn btn-outline-secondary inquire-product" data-product-name="${this.escapeHtml(product.name)}">
               <i class="fas fa-envelope me-2"></i>Request Information
@@ -284,6 +395,7 @@ class ProductsLoader {
     const body = document.getElementById('productDetailsBody');
     if (!body) return;
 
+    this.modalProductId = productId;
     body.innerHTML = this.buildProductDetailsTemplate(product);
 
     body.querySelectorAll('.detail-thumb').forEach((thumbButton) => {
@@ -308,6 +420,9 @@ class ProductsLoader {
 
     if (!this.detailsModal) {
       this.detailsModal = new bootstrap.Modal(modalEl);
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        this.modalProductId = null;
+      });
     }
 
     this.detailsModal.show();

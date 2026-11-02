@@ -152,6 +152,10 @@ All responses follow this format:
 - `PUT /api/products/:id/reviews` - Update product review
 - `DELETE /api/products/:id/reviews` - Delete product review
 
+#### Cart Stock Reservations
+- `POST /api/cart/sync` - Reserve or adjust stock for a cart (returns live `availableStock`)
+- `DELETE /api/cart/:cartId` - Release every stock hold for a cart
+
 #### Orders
 - `POST /api/orders` - Create new order
 - `GET /api/orders` - Get orders (Admin/Client)
@@ -190,7 +194,8 @@ All responses follow this format:
   description: String,
   category: String,
   price: Number,
-  stock: Number,
+  stock: Number, // physical stock on hand
+  reserved: Number, // units temporarily held by carts
   image: String,
   images: [String],
   brand: String,
@@ -281,6 +286,8 @@ npm run lint:fix
 
 ### Environment Variables
 For development, use `.env` file with proper configuration. For production, set environment variables directly in the hosting platform.
+
+`CART_RESERVATION_MINUTES` controls how long an item stays held in a customer's cart (default `15`). Customer-facing availability is always `stock - reserved`; expired holds are released automatically by the reservation janitor.
 
 ## Production Deployment
 

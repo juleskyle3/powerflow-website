@@ -26,6 +26,11 @@
         .cart-item-details {
             flex: 1;
         }
+        .cart-item-stock {
+            display: block;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
         .cart-item-quantity {
             display: flex;
             align-items: center;
@@ -90,6 +95,10 @@
                         </div>
                         <div class="card-body">
                             <div id="cartItems"></div>
+                            <div class="alert alert-info mt-3 mb-0 d-flex align-items-start gap-2" role="status">
+                                <i class="fas fa-clock mt-1"></i>
+                                <div>Items in your cart are reserved for <strong data-reservation-minutes>15 minutes</strong> while you check out. Stock counts update automatically for other customers.</div>
+                            </div>
                         </div>
                     </div>
 
@@ -182,9 +191,9 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/cart-manager.js"></script>
     <script src="js/config.js?v=3"></script>
     <script src="js/api.js?v=4"></script>
+    <script src="js/cart-manager.js?v=5"></script>
     <script>
         const DELIVERY_FEE = 5000;
         const ORDER_API_URL = `${API_BASE_URL}/orders`;
@@ -295,33 +304,53 @@
                 return;
             }
 
-            const cart = cartManager.getCart();
-            if (cart.length === 0) {
-                alert('Your cart is empty.');
-                return;
-            }
-
-            const formData = new FormData(form);
-            const orderData = {
-                customer: {
-                    name: formData.get('customerName'),
-                    email: formData.get('customerEmail'),
-                    phone: formData.get('customerPhone'),
-                    city: formData.get('customerCity'),
-                    address: formData.get('customerAddress'),
-                },
-                items: cart.map((item) => ({
-                    productId: item.productId,
-                    quantity: item.quantity,
-                })),
-                delivery: DELIVERY_FEE,
-                notes: formData.get('orderNotes'),
-                shippingMethod: 'Standard',
-            };
-
             setPlaceOrderLoading(true);
 
             try {
+                // Confirm live stock and refresh this cart's holds before
+                // sending the order. The server clips quantities if other
+                // customers bought the remaining units.
+                const syncResult = await cartManager.syncCart({ silent: true, notify: false });
+
+                if (!syncResult || syncResult.error) {
+                    alert('We could not confirm current stock. Please check your connection and try again.');
+                    return;
+                }
+
+                cartManager.renderCart();
+
+                if (syncResult.adjustments && syncResult.adjustments.length > 0) {
+                    updateSummary();
+                    alert('Stock changed while you were checking out, so your cart was updated. Please review the quantities and place your order again.');
+                    return;
+                }
+
+                const cart = cartManager.getCart();
+                if (cart.length === 0) {
+                    updateSummary();
+                    alert('The items in your cart are no longer available. Please add products again.');
+                    return;
+                }
+
+                const formData = new FormData(form);
+                const orderData = {
+                    cartId: cartManager.getCartId(),
+                    customer: {
+                        name: formData.get('customerName'),
+                        email: formData.get('customerEmail'),
+                        phone: formData.get('customerPhone'),
+                        city: formData.get('customerCity'),
+                        address: formData.get('customerAddress'),
+                    },
+                    items: cart.map((item) => ({
+                        productId: item.productId,
+                        quantity: item.quantity,
+                    })),
+                    delivery: DELIVERY_FEE,
+                    notes: formData.get('orderNotes'),
+                    shippingMethod: 'Standard',
+                };
+
                 const response = await fetch(ORDER_API_URL, {
                     method: 'POST',
                     headers: {
@@ -334,6 +363,13 @@
 
                 if (!response.ok || !result.success) {
                     const errorMessage = result?.error?.message || 'Error placing order. Please try again.';
+
+                    if (response.status === 409) {
+                        await cartManager.syncCart({ silent: true, notify: true });
+                        cartManager.renderCart();
+                        updateSummary();
+                    }
+
                     alert(errorMessage);
                     return;
                 }
@@ -350,7 +386,7 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const originalRenderCart = cartManager.renderCart.bind(cartManager);
             cartManager.renderCart = (...args) => {
                 originalRenderCart(...args);
@@ -358,6 +394,12 @@
             };
 
             cartManager.renderCart();
+            updateSummary();
+
+            // Replace any saved quantities with the server's live availability.
+            await cartManager.syncCart({ silent: true, notify: false });
+            cartManager.renderCart();
+            updateSummary();
 
             const cartItems = document.getElementById('cartItems');
             if (cartItems) {

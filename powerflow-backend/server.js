@@ -13,11 +13,13 @@ const googleAuthRoutes = require('./routes/googleAuthRoutes');
 const websiteContentRoutes = require('./routes/websiteContentRoutes');
 const directionsRoutes = require('./routes/directionsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 
 // Import middleware
 const errorMiddleware = require('./middleware/errorMiddleware');
 const authMiddleware = require('./middleware/authMiddleware');
 const { getUploadRootDir, getUploadPublicPrefix } = require('./config/uploads');
+const { startReservationJanitor } = require('./services/stockService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -117,13 +119,17 @@ if (uploadPrefix && uploadPrefix !== '/uploads') {
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(() => {
+    console.log('✅ MongoDB connected');
+    startReservationJanitor();
+  })
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/content', websiteContentRoutes);
 app.use('/api', directionsRoutes);
