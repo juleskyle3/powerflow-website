@@ -11,6 +11,7 @@ const {
   saveInvoiceBuffer,
 } = require('../services/invoiceService');
 const { isEmailConfigured, sendInvoiceEmail } = require('../services/emailService');
+const { deliverOrderAlert } = require('../services/notificationService');
 
 const orderController = {};
 
@@ -292,6 +293,17 @@ orderController.createOrder = async (req, res, next) => {
 
     const invoiceUrl = buildAbsoluteInvoiceUrl(req, order);
 
+    // Notify the admin in parallel with the customer invoice. Alert delivery is
+    // best-effort: a failure must never stop the order from being accepted.
+    const adminAlertPromise = deliverOrderAlert(order, {
+      invoiceUrl,
+      trigger: 'new-order',
+    }).catch((alertError) => ({
+      email: { status: 'Failed', error: alertError.message },
+      sms: { status: 'Failed', error: alertError.message },
+      attemptedAt: new Date().toISOString(),
+    }));
+
     let emailResult = { sent: false, error: null };
     try {
       const invoice = await attachInvoiceToOrder(order);
@@ -304,6 +316,14 @@ orderController.createOrder = async (req, res, next) => {
       emailResult = { sent: false, error: order.invoiceEmailError };
     }
 
+    const adminAlert = await adminAlertPromise;
+
+    // Reflect the persisted alert outcome in the response without re-saving.
+    order.adminAlertEmailStatus = adminAlert.email?.status || 'Pending';
+    order.adminAlertEmailError = adminAlert.email?.error || '';
+    order.adminAlertSmsStatus = adminAlert.sms?.status || 'Pending';
+    order.adminAlertSmsError = adminAlert.sms?.error || '';
+
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
@@ -312,6 +332,7 @@ orderController.createOrder = async (req, res, next) => {
         invoiceUrl,
         invoiceEmailSent: emailResult.sent,
         invoiceEmailError: emailResult.error || null,
+        adminAlert,
       },
     });
   } catch (error) {

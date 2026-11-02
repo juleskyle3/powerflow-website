@@ -208,6 +208,38 @@ class AdminAPIService {
     };
   }
 
+  async getNotificationStatus() {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/notifications/status`, {
+      cache: 'no-store',
+      headers: this.getAuthHeaders(),
+    });
+    return this.readJsonResponse(response);
+  }
+
+  async sendTestAlert(channel = 'both') {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/notifications/test`, {
+      method: 'POST',
+      headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ channel }),
+    });
+    return this.readJsonResponse(response);
+  }
+
+  async resendOrderAlert(orderId) {
+    if (!orderId) {
+      return { success: false, message: 'Order is missing an ID.' };
+    }
+
+    const response = await fetch(
+      `${ADMIN_API_BASE_URL}/notifications/order/${encodeURIComponent(orderId)}`,
+      {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+      }
+    );
+    return this.readJsonResponse(response);
+  }
+
   async getOrderById(id) {
     try {
       const response = await fetch(`${ADMIN_API_BASE_URL}/orders/${id}`, {

@@ -93,6 +93,39 @@ const orderSchema = new mongoose.Schema({
     type: String,
     maxlength: [1000, 'Invoice email error message cannot exceed 1000 characters'],
   },
+  // Admin order alerts (email + SMS). These are best-effort notifications and
+  // never block order creation; their outcome is stored for the admin portal.
+  adminAlertEmailStatus: {
+    type: String,
+    enum: ['Pending', 'Sent', 'Failed', 'Skipped'],
+    default: 'Pending',
+  },
+  adminAlertEmailSentAt: {
+    type: Date,
+  },
+  adminAlertEmailError: {
+    type: String,
+    maxlength: [1000, 'Admin alert email error message cannot exceed 1000 characters'],
+  },
+  adminAlertSmsStatus: {
+    type: String,
+    enum: ['Pending', 'Sent', 'Failed', 'Skipped'],
+    default: 'Pending',
+  },
+  adminAlertSmsSentAt: {
+    type: Date,
+  },
+  adminAlertSmsError: {
+    type: String,
+    maxlength: [1000, 'Admin alert SMS error message cannot exceed 1000 characters'],
+  },
+  adminAlertLastAttemptAt: {
+    type: Date,
+  },
+  adminAlertLastTrigger: {
+    type: String,
+    maxlength: [50, 'Admin alert trigger label cannot exceed 50 characters'],
+  },
   status: {
     type: String,
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'],

@@ -55,7 +55,7 @@ function getGmailAuthEntryUrl() {
 }
 
 function getGmailReauthorizationMessage() {
-  return `Gmail authorization has expired or was revoked. Open ${getGmailAuthEntryUrl()} to reconnect the company mailbox, then try sending the invoice again.`;
+  return `Gmail authorization has expired or was revoked. Open ${getGmailAuthEntryUrl()} to reconnect the company mailbox, then try again.`;
 }
 
 function isReauthorizationError(error) {
@@ -261,41 +261,70 @@ function wrapBase64(base64Text, width = 76) {
 }
 
 function buildRawMimeMessage({ from, to, subject, text, html, attachments = [] }) {
-  const boundary = `boundary_${Date.now().toString(16)}`;
+  const mixedBoundary = `mixed_${Date.now().toString(16)}`;
+  const alternativeBoundary = `alt_${Date.now().toString(16)}`;
   const hasHtml = Boolean(html);
+  const hasAttachments = attachments.length > 0;
 
   const mimeLines = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    `Content-Type: ${hasHtml ? 'text/html' : 'text/plain'}; charset="UTF-8"`,
-    'Content-Transfer-Encoding: 7bit',
-    '',
-    hasHtml ? html : text,
-    '',
   ];
 
-  attachments.forEach((attachment) => {
-    const contentType = attachment.contentType || 'application/octet-stream';
-    const fileName = attachment.filename || 'attachment.bin';
-    const content = Buffer.isBuffer(attachment.content)
-      ? attachment.content
-      : Buffer.from(String(attachment.content || ''), 'utf8');
+  if (hasAttachments) {
+    mimeLines.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`, '');
+    mimeLines.push(`--${mixedBoundary}`);
+  }
 
-    mimeLines.push(`--${boundary}`);
-    mimeLines.push(`Content-Type: ${contentType}; name="${fileName}"`);
-    mimeLines.push('Content-Transfer-Encoding: base64');
-    mimeLines.push(`Content-Disposition: attachment; filename="${fileName}"`);
-    mimeLines.push('');
-    mimeLines.push(wrapBase64(content.toString('base64')));
-    mimeLines.push('');
-  });
+  if (hasHtml) {
+    mimeLines.push(`Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`, '');
+    mimeLines.push(
+      `--${alternativeBoundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      text || '',
+      '',
+      `--${alternativeBoundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      html,
+      '',
+      `--${alternativeBoundary}--`,
+      ''
+    );
+  } else {
+    mimeLines.push(
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      text || '',
+      ''
+    );
+  }
 
-  mimeLines.push(`--${boundary}--`);
+  if (hasAttachments) {
+    attachments.forEach((attachment) => {
+      const contentType = attachment.contentType || 'application/octet-stream';
+      const fileName = attachment.filename || 'attachment.bin';
+      const content = Buffer.isBuffer(attachment.content)
+        ? attachment.content
+        : Buffer.from(String(attachment.content || ''), 'utf8');
+
+      mimeLines.push(`--${mixedBoundary}`);
+      mimeLines.push(`Content-Type: ${contentType}; name="${fileName}"`);
+      mimeLines.push('Content-Transfer-Encoding: base64');
+      mimeLines.push(`Content-Disposition: attachment; filename="${fileName}"`);
+      mimeLines.push('');
+      mimeLines.push(wrapBase64(content.toString('base64')));
+      mimeLines.push('');
+    });
+
+    mimeLines.push(`--${mixedBoundary}--`, '');
+  }
 
   return toBase64Url(mimeLines.join('\r\n'));
 }

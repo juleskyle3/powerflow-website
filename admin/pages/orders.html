@@ -18,7 +18,7 @@
         }
 
         .orders-page .orders-table {
-            min-width: 1520px;
+            min-width: 1720px;
         }
 
         .orders-page .orders-table thead th {
@@ -65,6 +65,23 @@
 
         .orders-page .orders-table .invoice-email-cell {
             min-width: 170px;
+        }
+
+        .orders-page .orders-table .alerts-cell {
+            min-width: 185px;
+        }
+
+        .orders-page .orders-table .alerts-cell .badge {
+            font-size: 0.74rem;
+            padding: 0.38rem 0.6rem;
+            font-weight: 600;
+        }
+
+        .orders-page .orders-table .alerts-cell .resend-alert-btn {
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 0;
         }
 
         .orders-page .orders-table .date-cell {
@@ -115,7 +132,7 @@
 
         @media (max-width: 1200px) {
             .orders-page .orders-table {
-                min-width: 1350px;
+                min-width: 1560px;
             }
         }
 
@@ -125,7 +142,7 @@
             }
 
             .orders-page .orders-table {
-                min-width: 1200px;
+                min-width: 1400px;
             }
 
             .orders-page .orders-table tbody td {
@@ -216,8 +233,8 @@
         <div id="gmailAuthAlert" class="alert alert-warning d-none" role="alert">
             <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
                 <div>
-                    <h6 class="alert-heading mb-1"><i class="fas fa-envelope-open-text me-2"></i>Invoice emails are not connected</h6>
-                    <div id="gmailAuthMessage" class="small">Gmail authorization is required before invoices can be emailed.</div>
+                    <h6 class="alert-heading mb-1"><i class="fas fa-envelope-open-text me-2"></i>Email alerts and invoices are not connected</h6>
+                    <div id="gmailAuthMessage" class="small">Gmail authorization is required before order alerts and invoices can be emailed.</div>
                 </div>
                 <a id="gmailAuthLink" class="btn btn-warning btn-sm text-nowrap" href="#" target="_blank" rel="noopener">
                     <i class="fas fa-key me-2"></i>Authorize Gmail
@@ -279,13 +296,14 @@
                                 <th>Payment</th>
                                 <th>Status</th>
                                 <th>Invoice Email</th>
+                                <th>Alerts</th>
                                 <th>Date</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="ordersTable">
                             <tr>
-                                <td colspan="9" class="text-center py-4">
+                                <td colspan="10" class="text-center py-4">
                                     <div class="spinner-border" role="status"></div>
                                     <p class="mt-2">Loading orders...</p>
                                 </td>
@@ -325,6 +343,7 @@
         const inFlightSaves = new Set();
         const deletingOrders = new Set();
         const sendingInvoices = new Set();
+        const sendingAlerts = new Set();
         const GMAIL_AUTH_URL = adminAPIService.getGmailAuthUrl();
 
         function escapeHtml(value) {
@@ -373,6 +392,20 @@
                 Failed: 'bg-danger',
             };
             return `<span class="badge ${classes[status] || 'bg-secondary'}">${escapeHtml(status || 'Unknown')}</span>`;
+        }
+
+        function alertStatusBadge(label, status) {
+            const normalized = status || 'Not sent';
+            const classes = {
+                Sent: 'bg-success',
+                Pending: 'bg-warning text-dark',
+                Failed: 'bg-danger',
+                Skipped: 'bg-secondary',
+                'Not sent': 'bg-light text-dark border',
+            };
+            const icon = label === 'SMS' ? 'fa-comment-sms' : 'fa-envelope';
+
+            return `<span class="badge ${classes[normalized] || 'bg-secondary'}"><i class="fas ${icon} me-1"></i>${escapeHtml(label)}: ${escapeHtml(normalized)}</span>`;
         }
 
         function formatCurrency(value) {
@@ -498,7 +531,7 @@
                     message = `No Gmail authorization token is saved on the server. Click "Authorize Gmail" and sign in as ${status.configuredSender || 'the company Gmail account'}.`;
                 }
                 if (!message) {
-                    message = 'Gmail authorization is required before invoices can be emailed.';
+                    message = 'Gmail authorization is required before order alerts and invoices can be emailed.';
                 }
 
                 messageEl.innerHTML = formatInvoiceEmailError(message);
@@ -532,7 +565,7 @@
             const table = document.getElementById('ordersTable');
             table.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center py-4">
+                    <td colspan="10" class="text-center py-4">
                         <div class="spinner-border" role="status"></div>
                         <p class="mt-2">Loading orders...</p>
                     </td>
@@ -552,7 +585,7 @@
                 console.error('Error loading orders:', error);
                 table.innerHTML = `
                     <tr>
-                        <td colspan="9" class="text-center py-5 text-muted">
+                        <td colspan="10" class="text-center py-5 text-muted">
                             <i class="fas fa-triangle-exclamation fa-2x mb-2"></i>
                             <p>Unable to load orders right now.</p>
                         </td>
@@ -587,7 +620,7 @@
             if (filteredOrders.length === 0) {
                 table.innerHTML = `
                     <tr>
-                        <td colspan="9" class="text-center py-5 text-muted">
+                        <td colspan="10" class="text-center py-5 text-muted">
                             <i class="fas fa-box-open fa-2x mb-2"></i>
                             <p>No orders match your filters.</p>
                         </td>
@@ -648,6 +681,15 @@
                         <td class="invoice-email-cell">
                             ${invoiceEmailBadge(order.invoiceEmailStatus)}
                             ${order.invoiceEmailError ? `<div class="small text-danger mt-1">${formatInvoiceEmailError(order.invoiceEmailError)}</div>` : ''}
+                        </td>
+                        <td class="alerts-cell">
+                            <div class="d-flex flex-column align-items-start gap-1">
+                                ${alertStatusBadge('Email', order.adminAlertEmailStatus)}
+                                ${alertStatusBadge('SMS', order.adminAlertSmsStatus)}
+                                <button class="btn btn-link resend-alert-btn" data-order-id="${order._id}" title="Resend the admin order alert">
+                                    <i class="fas fa-bell me-1"></i>Resend alert
+                                </button>
+                            </div>
                         </td>
                         <td class="date-cell">${formatDateCell(order.createdAt)}</td>
                         <td class="actions-cell">
@@ -740,6 +782,8 @@
                                 <p class="mb-1"><strong>Status:</strong> ${statusBadge(order.status)}</p>
                                 <p class="mb-1"><strong>Payment:</strong> ${paymentBadge(order.paymentStatus)}</p>
                                 <p class="mb-1"><strong>Invoice Email:</strong> ${invoiceEmailBadge(order.invoiceEmailStatus)}</p>
+                                <p class="mb-1"><strong>Admin Email Alert:</strong> ${alertStatusBadge('Email', order.adminAlertEmailStatus)}</p>
+                                <p class="mb-1"><strong>Admin SMS Alert:</strong> ${alertStatusBadge('SMS', order.adminAlertSmsStatus)}</p>
                                 <p class="mb-1"><strong>Created:</strong> ${formatDateInWords(order.createdAt)}</p>
                                 <p class="mb-0"><strong>Total:</strong> ${formatCurrency(order.totalAmount)}</p>
                             </div>
@@ -756,6 +800,9 @@
                     </a>
                     <button class="btn btn-outline-info send-invoice-btn" data-order-id="${order._id}">
                         <i class="fas fa-paper-plane me-2"></i>Send Invoice Email
+                    </button>
+                    <button class="btn btn-outline-warning resend-alert-btn" data-order-id="${order._id}">
+                        <i class="fas fa-bell me-2"></i>Resend Admin Alert
                     </button>
                 </div>
             `;
@@ -774,6 +821,13 @@
                 'invoiceEmailStatus',
                 'invoiceEmailError',
                 'invoiceEmailSentAt',
+                'adminAlertEmailStatus',
+                'adminAlertEmailError',
+                'adminAlertEmailSentAt',
+                'adminAlertSmsStatus',
+                'adminAlertSmsError',
+                'adminAlertSmsSentAt',
+                'adminAlertLastAttemptAt',
             ];
             const applyTo = (target) => {
                 if (!target) return;
@@ -891,6 +945,44 @@
             }
         }
 
+        async function sendAlert(orderId, triggerButton = null) {
+            if (!orderId || sendingAlerts.has(orderId)) return;
+
+            const order = allOrders.find((item) => item._id === orderId);
+            const label = order?.invoiceNumber || orderId;
+
+            sendingAlerts.add(orderId);
+            const originalHtml = triggerButton ? triggerButton.innerHTML : '';
+            if (triggerButton) {
+                triggerButton.disabled = true;
+                triggerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                const response = await adminAPIService.resendOrderAlert(orderId);
+                if (!response.success) {
+                    throw new Error(getApiErrorMessage(response, 'The admin alert could not be sent.'));
+                }
+
+                if (response.data?.order) {
+                    updateOrderInMemory(orderId, response.data.order);
+                }
+
+                showToast(response.message || `Admin alert resent for ${label}.`);
+                await loadOrders();
+            } catch (error) {
+                console.error('Error resending admin alert:', error);
+                showToast(error.message || 'Unable to resend the admin alert.', 'danger');
+                await loadOrders();
+            } finally {
+                sendingAlerts.delete(orderId);
+                if (triggerButton) {
+                    triggerButton.disabled = false;
+                    triggerButton.innerHTML = originalHtml;
+                }
+            }
+        }
+
         async function deleteOrder(orderId, triggerButton = null) {
             if (!orderId || deletingOrders.has(orderId)) return;
 
@@ -976,6 +1068,12 @@
                     return;
                 }
 
+                const alertButton = event.target.closest('.resend-alert-btn');
+                if (alertButton) {
+                    await sendAlert(alertButton.dataset.orderId, alertButton);
+                    return;
+                }
+
                 const deleteButton = event.target.closest('.delete-order-btn');
                 if (deleteButton) {
                     await deleteOrder(deleteButton.dataset.orderId, deleteButton);
@@ -986,6 +1084,12 @@
                 const sendButton = event.target.closest('.send-invoice-btn');
                 if (sendButton) {
                     await sendInvoice(sendButton.dataset.orderId, sendButton);
+                    return;
+                }
+
+                const alertButton = event.target.closest('.resend-alert-btn');
+                if (alertButton) {
+                    await sendAlert(alertButton.dataset.orderId, alertButton);
                 }
             });
 
@@ -1011,7 +1115,12 @@
             bindEvents();
             handleGmailOAuthResult();
             refreshGmailStatus();
-            loadOrders();
+            loadOrders().then(() => {
+                const orderId = new URLSearchParams(window.location.search).get('order');
+                if (orderId) {
+                    openOrderDetails(orderId);
+                }
+            });
 
             // Re-check after the admin returns from the Gmail authorization tab.
             document.addEventListener('visibilitychange', () => {

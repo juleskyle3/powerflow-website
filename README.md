@@ -62,6 +62,7 @@ powerflow-website-main/
 - Website content management
 - Product management
 - Order management
+- Order alerts (branded email + SMS) - see [ORDER_ALERTS.md](ORDER_ALERTS.md)
 - User management
 
 ---

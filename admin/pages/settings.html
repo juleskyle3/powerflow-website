@@ -7,8 +7,161 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/admin.css">
+    <style>
+        .settings-page .main-content {
+            padding: 28px;
+        }
+
+        .settings-page .page-subtitle {
+            margin: 4px 0 0;
+            color: var(--secondary-color);
+            font-size: 0.95rem;
+        }
+
+        .settings-page .alert-setting-card {
+            height: 100%;
+            border: 1px solid #e5eaf3;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+        }
+
+        .settings-page .alert-setting-card .card-body {
+            padding: 1.5rem;
+        }
+
+        .settings-page .channel-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            color: #fff;
+            flex: 0 0 auto;
+        }
+
+        .settings-page .channel-icon.email {
+            background: linear-gradient(135deg, #4c62a8, #38497f);
+        }
+
+        .settings-page .channel-icon.sms {
+            background: linear-gradient(135deg, #0f9f6e, #087a54);
+        }
+
+        .settings-page .channel-title {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--dark-color);
+        }
+
+        .settings-page .channel-subtitle {
+            margin: 2px 0 0;
+            font-size: 0.82rem;
+            color: var(--secondary-color);
+        }
+
+        .settings-page .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.32rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+
+        .settings-page .status-pill.ready {
+            background: #dcfce7;
+            color: #047857;
+        }
+
+        .settings-page .status-pill.warning {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .settings-page .status-pill.off {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .settings-page .detail-list {
+            margin: 1.25rem 0 0;
+        }
+
+        .settings-page .detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.62rem 0;
+            border-bottom: 1px dashed #e8edf5;
+            font-size: 0.88rem;
+        }
+
+        .settings-page .detail-row:last-child {
+            border-bottom: 0;
+        }
+
+        .settings-page .detail-label {
+            color: var(--secondary-color);
+            white-space: nowrap;
+        }
+
+        .settings-page .detail-value {
+            color: var(--dark-color);
+            font-weight: 600;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        .settings-page .test-panel {
+            border: 1px solid #e5eaf3;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+        }
+
+        .settings-page .test-result {
+            margin-top: 1rem;
+            font-size: 0.88rem;
+        }
+
+        .settings-page .test-result .result-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px dashed #e8edf5;
+        }
+
+        .settings-page .test-result .result-row:last-child {
+            border-bottom: 0;
+        }
+
+        .settings-page .setup-list {
+            margin: 0;
+            padding-left: 1.1rem;
+            font-size: 0.88rem;
+            color: var(--secondary-color);
+        }
+
+        .settings-page .setup-list li {
+            margin-bottom: 0.45rem;
+        }
+
+        .settings-page code {
+            background: #f1f5f9;
+            color: #334155;
+            padding: 0.12rem 0.38rem;
+            border-radius: 5px;
+            font-size: 0.82em;
+        }
+    </style>
 </head>
-<body class="admin-dashboard">
+<body class="admin-dashboard settings-page">
     <nav class="sidebar">
         <div class="sidebar-header">
             <img src="../../images/logo.jpg" alt="Logo" class="sidebar-logo">
@@ -27,8 +180,14 @@
 
     <main class="main-content">
         <div class="topbar">
-            <h1 class="page-title">Settings</h1>
+            <div>
+                <h1 class="page-title">Settings</h1>
+                <p class="page-subtitle">Manage how the admin team is notified when a new order arrives.</p>
+            </div>
             <div class="user-menu">
+                <button class="btn btn-outline-secondary me-2" id="refreshStatusBtn">
+                    <i class="fas fa-sync me-2"></i>Refresh
+                </button>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user-circle me-2"></i>Account
@@ -40,17 +199,395 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-body text-center py-5">
-                <i class="fas fa-cog fa-5x text-muted mb-4"></i>
-                <h3>System Settings</h3>
-                <p class="text-muted mb-4">Configure system settings and preferences. This feature is coming soon.</p>
-                <a href="../dashboard.html" class="btn btn-primary"><i class="fas fa-arrow-left me-2"></i>Back to Dashboard</a>
+        <div class="card mb-4 border-0" style="background: linear-gradient(135deg, #eef2fb, #f8fafc);">
+            <div class="card-body d-flex flex-column flex-md-row align-items-md-center gap-3 p-4">
+                <div class="channel-icon email" style="background: rgba(76, 98, 168, 0.12); color: #4c62a8;">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="mb-1" style="color: var(--dark-color); font-weight: 700;">Order alerts</h5>
+                    <p class="mb-0 text-muted" style="font-size: 0.92rem;">
+                        Every new order triggers a branded email and an SMS to the recipients below. Alerts send in the background and never block checkout.
+                    </p>
+                </div>
+                <span class="badge bg-primary px-3 py-2" id="alertSummaryBadge">Checking configuration...</span>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card alert-setting-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="channel-icon email"><i class="fas fa-envelope"></i></div>
+                            <div class="flex-grow-1">
+                                <h5 class="channel-title">Email alerts</h5>
+                                <p class="channel-subtitle">Branded order summary sent to the admin inbox.</p>
+                            </div>
+                            <span class="status-pill off" id="emailStatusBadge"><i class="fas fa-circle" style="font-size: 7px;"></i>Checking</span>
+                        </div>
+
+                        <div class="detail-list">
+                            <div class="detail-row">
+                                <span class="detail-label">Recipient</span>
+                                <span class="detail-value" id="emailRecipient">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Sender</span>
+                                <span class="detail-value" id="emailSender">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Provider</span>
+                                <span class="detail-value" id="emailProvider">-</span>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning small mt-3 mb-0 d-none" id="emailWarning"></div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <button class="btn btn-primary btn-sm" id="testEmailBtn">
+                                <i class="fas fa-paper-plane me-2"></i>Send test email
+                            </button>
+                            <a class="btn btn-outline-primary btn-sm d-none" id="reconnectGmailBtn" href="#" target="_blank" rel="noopener">
+                                <i class="fas fa-key me-2"></i>Reconnect Gmail
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card alert-setting-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="channel-icon sms"><i class="fas fa-comment-sms"></i></div>
+                            <div class="flex-grow-1">
+                                <h5 class="channel-title">SMS alerts</h5>
+                                <p class="channel-subtitle">Short alert delivered to the admin phone via Africa's Talking.</p>
+                            </div>
+                            <span class="status-pill off" id="smsStatusBadge"><i class="fas fa-circle" style="font-size: 7px;"></i>Checking</span>
+                        </div>
+
+                        <div class="detail-list">
+                            <div class="detail-row">
+                                <span class="detail-label">Recipient</span>
+                                <span class="detail-value" id="smsRecipient">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Provider</span>
+                                <span class="detail-value" id="smsProvider">Africa's Talking</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Sender ID</span>
+                                <span class="detail-value" id="smsSenderId">Not set</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Mode</span>
+                                <span class="detail-value" id="smsMode">-</span>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning small mt-3 mb-0 d-none" id="smsWarning"></div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <button class="btn btn-success btn-sm" id="testSmsBtn">
+                                <i class="fas fa-comment-sms me-2"></i>Send test SMS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card test-panel">
+                    <div class="card-body p-4">
+                        <h5 class="mb-1" style="color: var(--dark-color); font-weight: 700;">
+                            <i class="fas fa-flask me-2 text-primary"></i>Test notifications
+                        </h5>
+                        <p class="text-muted mb-3" style="font-size: 0.9rem;">
+                            Send a live test to confirm the configured channels are working. Test messages use the same recipients as real order alerts.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-outline-primary" id="testBothBtn">
+                                <i class="fas fa-bolt me-2"></i>Test both channels
+                            </button>
+                            <button class="btn btn-outline-secondary" id="testEmailBtn2">
+                                <i class="fas fa-envelope me-2"></i>Email only
+                            </button>
+                            <button class="btn btn-outline-secondary" id="testSmsBtn2">
+                                <i class="fas fa-comment-sms me-2"></i>SMS only
+                            </button>
+                        </div>
+                        <div class="test-result d-none" id="testResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card test-panel h-100">
+                    <div class="card-body p-4">
+                        <h5 class="mb-2" style="color: var(--dark-color); font-weight: 700;">
+                            <i class="fas fa-sliders-h me-2 text-primary"></i>Configuration
+                        </h5>
+                        <p class="text-muted mb-3" style="font-size: 0.9rem;">
+                            Recipients and provider credentials live in <code>powerflow-backend/.env</code>. Restart the backend after changing them.
+                        </p>
+                        <ul class="setup-list">
+                            <li><code>ADMIN_ALERT_EMAIL</code> - admin inbox</li>
+                            <li><code>ADMIN_ALERT_PHONE</code> - phone in <code>+250...</code> format</li>
+                            <li><code>AFRICASTALKING_USERNAME</code> and <code>AFRICASTALKING_API_KEY</code> - SMS</li>
+                            <li><code>AFRICASTALKING_SENDER_ID</code> - optional approved sender</li>
+                            <li><code>ADMIN_ALERT_EMAIL_ENABLED</code> / <code>ADMIN_ALERT_SMS_ENABLED</code></li>
+                        </ul>
+                        <a class="btn btn-outline-primary btn-sm mt-3" href="orders.html">
+                            <i class="fas fa-shopping-cart me-2"></i>View orders &amp; alert history
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/admin-auth.js"></script>
+    <script src="../assets/js/admin-api-service.js"></script>
+    <script>
+        const GMAIL_AUTH_URL = adminAPIService.getGmailAuthUrl();
+        let testingChannel = null;
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showToast(message, type = 'success') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 320px;';
+            alert.innerHTML = `${escapeHtml(message)}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(alert);
+            setTimeout(() => alert.remove(), 6000);
+        }
+
+        function setStatusBadge(element, status, tone, label) {
+            if (!element) return;
+            element.className = `status-pill ${tone}`;
+            element.innerHTML = `<i class="fas fa-circle" style="font-size: 7px;"></i>${escapeHtml(label)}`;
+            element.title = status || label;
+        }
+
+        function setWarning(element, message) {
+            if (!element) return;
+            if (message) {
+                element.textContent = message;
+                element.classList.remove('d-none');
+            } else {
+                element.textContent = '';
+                element.classList.add('d-none');
+            }
+        }
+
+        function renderEmailStatus(email) {
+            const badge = document.getElementById('emailStatusBadge');
+            const warning = document.getElementById('emailWarning');
+            const reconnect = document.getElementById('reconnectGmailBtn');
+
+            document.getElementById('emailRecipient').textContent = email?.recipient || '-';
+            document.getElementById('emailSender').textContent = email?.sender || '-';
+            document.getElementById('emailProvider').textContent = email?.provider === 'gmail-oauth' ? 'Gmail OAuth' : 'SMTP';
+
+            if (!email?.enabled) {
+                setStatusBadge(badge, 'Disabled', 'off', 'Disabled');
+                setWarning(warning, 'Admin email alerts are disabled in the backend environment.');
+                reconnect.classList.add('d-none');
+                return;
+            }
+
+            if (!email?.configured) {
+                setStatusBadge(badge, 'Not configured', 'off', 'Not configured');
+                setWarning(warning, 'No email provider is configured. Set Gmail OAuth or SMTP settings in the backend .env.');
+                reconnect.classList.add('d-none');
+                return;
+            }
+
+            if (email?.ready) {
+                setStatusBadge(badge, 'Ready', 'ready', 'Connected');
+                setWarning(warning, '');
+                reconnect.classList.add('d-none');
+                return;
+            }
+
+            setStatusBadge(badge, 'Needs authorization', 'warning', 'Authorization needed');
+            setWarning(warning, email?.error || 'Gmail authorization is required before alert emails can be sent.');
+            reconnect.href = GMAIL_AUTH_URL;
+            reconnect.classList.remove('d-none');
+        }
+
+        function renderSmsStatus(sms) {
+            const badge = document.getElementById('smsStatusBadge');
+            const warning = document.getElementById('smsWarning');
+
+            document.getElementById('smsRecipient').textContent = sms?.recipient || '-';
+            document.getElementById('smsProvider').textContent = "Africa's Talking";
+            document.getElementById('smsSenderId').textContent = sms?.senderId || 'Not set';
+            document.getElementById('smsMode').textContent = sms?.sandbox ? 'Sandbox' : 'Live';
+
+            if (!sms?.enabled) {
+                setStatusBadge(badge, 'Disabled', 'off', 'Disabled');
+                setWarning(warning, 'Admin SMS alerts are disabled in the backend environment.');
+                return;
+            }
+
+            if (sms?.ready) {
+                setStatusBadge(badge, 'Ready', 'ready', 'Connected');
+                setWarning(warning, '');
+                return;
+            }
+
+            setStatusBadge(badge, 'Not configured', 'off', 'Not configured');
+            setWarning(warning, sms?.error || 'Set the Africa\'s Talking credentials to enable SMS alerts.');
+        }
+
+        function updateSummary(status) {
+            const badge = document.getElementById('alertSummaryBadge');
+            const channels = [];
+
+            if (status?.email?.ready) channels.push('Email');
+            if (status?.sms?.ready) channels.push('SMS');
+
+            if (channels.length === 0) {
+                badge.className = 'badge bg-warning text-dark px-3 py-2';
+                badge.textContent = 'No channel ready';
+                return;
+            }
+
+            badge.className = 'badge bg-success px-3 py-2';
+            badge.textContent = `Active: ${channels.join(' + ')}`;
+        }
+
+        async function loadStatus() {
+            const refreshButton = document.getElementById('refreshStatusBtn');
+            refreshButton.disabled = true;
+
+            try {
+                const response = await adminAPIService.getNotificationStatus();
+                if (!response?.success) {
+                    throw new Error(response?.error?.message || response?.message || 'Unable to load notification settings.');
+                }
+
+                const status = response.data || {};
+                renderEmailStatus(status.email);
+                renderSmsStatus(status.sms);
+                updateSummary(status);
+            } catch (error) {
+                console.error('Error loading alert settings:', error);
+                showToast(error.message || 'Unable to load notification settings.', 'danger');
+                setStatusBadge(document.getElementById('emailStatusBadge'), 'Unknown', 'off', 'Unavailable');
+                setStatusBadge(document.getElementById('smsStatusBadge'), 'Unknown', 'off', 'Unavailable');
+            } finally {
+                refreshButton.disabled = false;
+            }
+        }
+
+        function setTestButtonsDisabled(disabled) {
+            ['testEmailBtn', 'testSmsBtn', 'testBothBtn', 'testEmailBtn2', 'testSmsBtn2'].forEach((id) => {
+                const button = document.getElementById(id);
+                if (button) button.disabled = disabled;
+            });
+        }
+
+        function resultRow(label, result) {
+            const status = result?.status || 'Unknown';
+            const tone = status === 'Sent' ? 'success' : status === 'Skipped' ? 'secondary' : 'danger';
+            const detail = result?.error
+                ? `<div class="text-muted mt-1">${escapeHtml(result.error)}</div>`
+                : result?.provider
+                    ? `<div class="text-muted mt-1">via ${escapeHtml(result.provider)}</div>`
+                    : '';
+
+            return `
+                <div class="result-row">
+                    <span class="badge bg-${tone} mt-1">${escapeHtml(status)}</span>
+                    <div>
+                        <strong>${escapeHtml(label)}</strong>
+                        ${detail}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function runTest(channel, triggerButton) {
+            if (testingChannel) return;
+            testingChannel = channel;
+
+            const results = document.getElementById('testResults');
+            const originalHtml = triggerButton ? triggerButton.innerHTML : '';
+
+            setTestButtonsDisabled(true);
+            if (triggerButton) {
+                triggerButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+            }
+            results.classList.remove('d-none');
+            results.innerHTML = '<div class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Sending test alert...</div>';
+
+            try {
+                const response = await adminAPIService.sendTestAlert(channel);
+                if (!response?.success) {
+                    throw new Error(response?.error?.message || response?.message || 'The test alert could not be sent.');
+                }
+
+                const data = response.data?.results || {};
+                const rows = [];
+                if (data.email) rows.push(resultRow('Email alert', data.email));
+                if (data.sms) rows.push(resultRow('SMS alert', data.sms));
+                results.innerHTML = rows.join('') || '<div class="text-muted">No channels were tested.</div>';
+
+                const sent = Object.values(data).filter((item) => item.status === 'Sent').length;
+                const failed = Object.values(data).filter((item) => item.status === 'Failed').length;
+
+                if (sent > 0) {
+                    showToast(response.message || 'Test alert sent.');
+                } else if (failed > 0) {
+                    showToast('The test alert failed. Review the details below.', 'danger');
+                } else {
+                    showToast('No channel is ready to send. Check the configuration.', 'warning');
+                }
+
+                await loadStatus();
+            } catch (error) {
+                console.error('Error sending test alert:', error);
+                results.innerHTML = `<div class="text-danger"><i class="fas fa-triangle-exclamation me-2"></i>${escapeHtml(error.message || 'The test alert could not be sent.')}</div>`;
+                showToast(error.message || 'The test alert could not be sent.', 'danger');
+            } finally {
+                testingChannel = null;
+                setTestButtonsDisabled(false);
+                if (triggerButton) {
+                    triggerButton.innerHTML = originalHtml;
+                }
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById('refreshStatusBtn').addEventListener('click', loadStatus);
+            document.getElementById('reconnectGmailBtn').href = GMAIL_AUTH_URL;
+
+            document.getElementById('testEmailBtn').addEventListener('click', (event) => runTest('email', event.currentTarget));
+            document.getElementById('testSmsBtn').addEventListener('click', (event) => runTest('sms', event.currentTarget));
+            document.getElementById('testBothBtn').addEventListener('click', (event) => runTest('both', event.currentTarget));
+            document.getElementById('testEmailBtn2').addEventListener('click', (event) => runTest('email', event.currentTarget));
+            document.getElementById('testSmsBtn2').addEventListener('click', (event) => runTest('sms', event.currentTarget));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            bindEvents();
+            loadStatus();
+        });
+    </script>
 </body>
 </html>

@@ -147,39 +147,73 @@ function dotStuff(text) {
   return text.replace(/(^|\r\n)\./g, '$1..');
 }
 
-function buildMessage({ from, to, subject, html, text, attachmentBuffer, attachmentName }) {
-  const boundary = `----=_PowerFlow_${Date.now().toString(16)}`;
-  const encodedAttachment = wrapBase64(attachmentBuffer.toString('base64'));
+function buildMessage({ from, to, subject, html, text, attachments = [] }) {
+  const mixedBoundary = `----=_PowerFlow_Mixed_${Date.now().toString(16)}`;
+  const alternativeBoundary = `----=_PowerFlow_Alt_${Date.now().toString(16)}`;
+  const hasHtml = Boolean(html);
+  const hasAttachments = attachments.length > 0;
 
   const lines = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
-    '',
-    text,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
-    '',
-    html,
-    '',
-    `--${boundary}`,
-    `Content-Type: application/pdf; name="${attachmentName}"`,
-    'Content-Transfer-Encoding: base64',
-    `Content-Disposition: attachment; filename="${attachmentName}"`,
-    '',
-    encodedAttachment,
-    '',
-    `--${boundary}--`,
-    '',
   ];
+
+  if (hasAttachments) {
+    lines.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`, '');
+    lines.push(`--${mixedBoundary}`);
+  }
+
+  if (hasHtml) {
+    lines.push(`Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`, '');
+    lines.push(
+      `--${alternativeBoundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      text || '',
+      '',
+      `--${alternativeBoundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      html,
+      '',
+      `--${alternativeBoundary}--`,
+      ''
+    );
+  } else {
+    lines.push(
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      text || '',
+      ''
+    );
+  }
+
+  if (hasAttachments) {
+    attachments.forEach((attachment) => {
+      const contentType = attachment.contentType || 'application/octet-stream';
+      const fileName = attachment.filename || 'attachment.bin';
+      const content = Buffer.isBuffer(attachment.content)
+        ? attachment.content
+        : Buffer.from(String(attachment.content || ''), 'utf8');
+
+      lines.push(
+        `--${mixedBoundary}`,
+        `Content-Type: ${contentType}; name="${fileName}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${fileName}"`,
+        '',
+        wrapBase64(content.toString('base64')),
+        ''
+      );
+    });
+
+    lines.push(`--${mixedBoundary}--`, '');
+  }
 
   return dotStuff(lines.join('\r\n'));
 }
@@ -309,6 +343,97 @@ function isEmailConfigured() {
   return isSmtpConfigured() || isGoogleCredentialsPresent();
 }
 
+async function sendTransactionalEmail({
+  to,
+  subject,
+  text,
+  html = '',
+  attachments = [],
+}) {
+  if (!to || !subject || !text) {
+    throw new Error('sendTransactionalEmail requires to, subject, and text.');
+  }
+
+  const senderEmail = process.env.GMAIL_SENDER_EMAIL
+    || process.env.SMTP_FROM
+    || process.env.SMTP_USER
+    || DEFAULT_INVOICE_SENDER_EMAIL;
+
+  const provider = String(process.env.EMAIL_PROVIDER || 'auto').toLowerCase();
+  const forceGmailOAuth = provider === 'gmail-oauth';
+  const forceSmtp = provider === 'smtp';
+
+  if (forceGmailOAuth) {
+    const gmailOnlyStatus = await gmailService.getAuthStatus();
+    if (!gmailOnlyStatus.configured) {
+      throw new Error(`Gmail OAuth is required but not configured: ${gmailOnlyStatus.error || 'missing credentials'}`);
+    }
+
+    await gmailService.sendEmail(to, subject, text, {
+      html,
+      from: senderEmail,
+      attachments,
+    });
+
+    return { provider: 'gmail-oauth' };
+  }
+
+  // Primary provider in auto mode: Gmail API OAuth 2.0
+  const gmailStatus = forceSmtp
+    ? { configured: false }
+    : await gmailService.getAuthStatus();
+
+  if (gmailStatus.configured && !forceSmtp) {
+    try {
+      await gmailService.sendEmail(to, subject, text, {
+        html,
+        from: senderEmail,
+        attachments,
+      });
+      return { provider: 'gmail-oauth' };
+    } catch (gmailError) {
+      // Fallback to SMTP if Gmail API cannot send.
+      if (!isSmtpConfigured()) {
+        throw new Error(`Gmail API send failed and SMTP fallback is not configured: ${gmailError.message}`);
+      }
+    }
+  }
+
+  if (!isSmtpConfigured()) {
+    throw new Error('No email provider configured. Configure Gmail OAuth (/auth/google) or SMTP settings.');
+  }
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpSecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || smtpPort === 465;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPassword = process.env.SMTP_PASSWORD;
+  const smtpFrom = parseFrom(process.env.SMTP_FROM, smtpUser || DEFAULT_INVOICE_SENDER_EMAIL);
+
+  const message = buildMessage({
+    from: smtpFrom.formatted,
+    to,
+    subject,
+    text,
+    html,
+    attachments,
+  });
+
+  await sendMessageViaSmtp({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    user: smtpUser,
+    password: smtpPassword,
+    from: smtpFrom.email,
+    to,
+    message,
+    clientHost: process.env.SMTP_CLIENT_NAME || 'localhost',
+  });
+
+  return { provider: 'smtp' };
+}
+
 async function sendInvoiceEmail({
   customerEmail,
   customerName,
@@ -354,108 +479,25 @@ async function sendInvoiceEmail({
 </div>
 `.trim();
 
-  const provider = String(process.env.EMAIL_PROVIDER || 'auto').toLowerCase();
-  const forceGmailOAuth = provider === 'gmail-oauth';
-  const forceSmtp = provider === 'smtp';
-
-  if (forceGmailOAuth) {
-    const gmailOnlyStatus = await gmailService.getAuthStatus();
-    if (!gmailOnlyStatus.configured) {
-      throw new Error(`Gmail OAuth is required but not configured: ${gmailOnlyStatus.error || 'missing credentials'}`);
-    }
-
-    await gmailService.sendEmail(
-      customerEmail,
-      subject,
-      textBody,
-      {
-        html: htmlBody,
-        from: process.env.GMAIL_SENDER_EMAIL
-          || process.env.SMTP_FROM
-          || process.env.SMTP_USER
-          || DEFAULT_INVOICE_SENDER_EMAIL,
-        attachments: [
-          {
-            filename: `${invoiceNumber}.pdf`,
-            contentType: 'application/pdf',
-            content: invoiceBuffer,
-          },
-        ],
-      }
-    );
-    return;
-  }
-
-  // Primary provider in auto mode: Gmail API OAuth 2.0
-  const gmailStatus = forceSmtp
-    ? { configured: false }
-    : await gmailService.getAuthStatus();
-
-  if (gmailStatus.configured && !forceSmtp) {
-    try {
-      await gmailService.sendEmail(
-        customerEmail,
-        subject,
-        textBody,
-        {
-          html: htmlBody,
-          from: process.env.GMAIL_SENDER_EMAIL
-            || process.env.SMTP_FROM
-            || process.env.SMTP_USER
-            || DEFAULT_INVOICE_SENDER_EMAIL,
-          attachments: [
-            {
-              filename: `${invoiceNumber}.pdf`,
-              contentType: 'application/pdf',
-              content: invoiceBuffer,
-            },
-          ],
-        }
-      );
-      return;
-    } catch (gmailError) {
-      // Fallback to SMTP if Gmail API cannot send.
-      if (!isSmtpConfigured()) {
-        throw new Error(`Gmail API send failed and SMTP fallback is not configured: ${gmailError.message}`);
-      }
-    }
-  }
-
-  if (!isSmtpConfigured()) {
-    throw new Error('No email provider configured. Configure Gmail OAuth (/auth/google) or SMTP settings.');
-  }
-
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const smtpSecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || smtpPort === 465;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPassword = process.env.SMTP_PASSWORD;
-  const smtpFrom = parseFrom(process.env.SMTP_FROM, smtpUser || DEFAULT_INVOICE_SENDER_EMAIL);
-
-  const message = buildMessage({
-    from: smtpFrom.formatted,
+  await sendTransactionalEmail({
     to: customerEmail,
     subject,
     text: textBody,
     html: htmlBody,
-    attachmentBuffer: invoiceBuffer,
-    attachmentName: `${invoiceNumber}.pdf`,
-  });
-
-  await sendMessageViaSmtp({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpSecure,
-    user: smtpUser,
-    password: smtpPassword,
-    from: smtpFrom.email,
-    to: customerEmail,
-    message,
-    clientHost: process.env.SMTP_CLIENT_NAME || 'localhost',
+    attachments: [
+      {
+        filename: `${invoiceNumber}.pdf`,
+        contentType: 'application/pdf',
+        content: invoiceBuffer,
+      },
+    ],
   });
 }
 
 module.exports = {
+  buildMessage,
   isEmailConfigured,
+  isSmtpConfigured,
   sendInvoiceEmail,
+  sendTransactionalEmail,
 };

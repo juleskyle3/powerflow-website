@@ -12,6 +12,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const googleAuthRoutes = require('./routes/googleAuthRoutes');
 const websiteContentRoutes = require('./routes/websiteContentRoutes');
 const directionsRoutes = require('./routes/directionsRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Import middleware
 const errorMiddleware = require('./middleware/errorMiddleware');
@@ -123,6 +124,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/content', websiteContentRoutes);
 app.use('/api', directionsRoutes);
 app.use('/', googleAuthRoutes);
